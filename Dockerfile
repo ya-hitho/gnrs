@@ -11,7 +11,7 @@ COPY web/app ./
 RUN npm run build
 
 # 2. Build the Go binary with the SPA embedded
-FROM golang:1.22-alpine AS backend
+FROM golang:1.25-alpine AS backend
 RUN apk add --no-cache build-base sqlite-dev
 WORKDIR /src
 

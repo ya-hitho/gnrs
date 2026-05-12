@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   BookMarked,
   BookOpenCheck,
+  CalendarCheck,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
@@ -103,6 +104,7 @@ export function Layout() {
     { to: '/students', icon: <Users size={16} />, label: 'Generus' },
     { to: '/teachers', icon: <GraduationCap size={16} />, label: 'Pengajar' },
     { to: '/kelas', icon: <School size={16} />, label: 'Kelas' },
+    { to: '/kehadiran', icon: <CalendarCheck size={16} />, label: 'Kehadiran' },
     { to: '/bacaan', icon: <BookOpenCheck size={16} />, label: 'Bacaan' },
     { to: '/pustaka', icon: <BookMarked size={16} />, label: 'Pustaka' },
     { to: '/achievement', icon: <Trophy size={16} />, label: 'Pencapaian' },

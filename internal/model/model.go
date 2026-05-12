@@ -17,6 +17,31 @@ func PhotoURL(filename *string) *string {
 	return &u
 }
 
+type AttendanceStatus string
+
+const (
+	AttendanceHadir     AttendanceStatus = "hadir"
+	AttendanceIzinMurid AttendanceStatus = "izin_murid"
+	AttendanceIzinGuru  AttendanceStatus = "izin_guru"
+	AttendanceByVN      AttendanceStatus = "by_vn"
+)
+
+// Attendance — one teaching encounter (kehadiran). teacher_id / student_id
+// reference the unified users table (no FK in DB to allow soft removal).
+type Attendance struct {
+	ID          string           `json:"id"`
+	Date        time.Time        `json:"date"`
+	DurationMin *int             `json:"durationMin,omitempty"`
+	TeacherID   string           `json:"teacherId"`
+	TeacherName string           `json:"teacherName"`
+	StudentID   string           `json:"studentId"`
+	StudentName string           `json:"studentName"`
+	Status      AttendanceStatus `json:"status"`
+	Materi      *string          `json:"materi,omitempty"`
+	CreatedAt   time.Time        `json:"createdAt"`
+	UpdatedAt   time.Time        `json:"updatedAt"`
+}
+
 type Role string
 
 const (

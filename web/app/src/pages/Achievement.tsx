@@ -861,12 +861,24 @@ function LibraryTab() {
               />
             )}
           </Field>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Field label="Dari" htmlFor="lib-from">
-              <Input id="lib-from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              <Input
+                id="lib-from"
+                type="date"
+                className="w-full min-w-0"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
             </Field>
             <Field label="Sampai" htmlFor="lib-to">
-              <Input id="lib-to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              <Input
+                id="lib-to"
+                type="date"
+                className="w-full min-w-0"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
             </Field>
           </div>
           <div className="flex flex-wrap gap-1.5">

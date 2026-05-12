@@ -29,6 +29,11 @@ data/
 # CSV exports / imports (kept out of source)
 *.csv
 
+# Local analysis artifacts (not source)
+nickname_mapping.md
+kehadiran.jpeg
+/excel/
+
 # IDE / OS / Agent state
 .idea/
 .vscode/

@@ -15,6 +15,7 @@ import { KelasCalendarSection } from '@/pages/sections/KelasCalendarSection'
 import { KelasRencanaSection } from '@/pages/sections/KelasRencanaSection'
 import { PustakaPage } from '@/pages/Pustaka'
 import { KontrolBacaanPage } from '@/pages/KontrolBacaan'
+import { KehadiranPage } from '@/pages/Kehadiran'
 import { PustakaAsmaulPage } from '@/pages/PustakaAsmaul'
 import { PustakaKarakterPage } from '@/pages/PustakaKarakter'
 import { PustakaQuranMushafPage } from '@/pages/PustakaQuranMushaf'
@@ -60,6 +61,7 @@ export function App() {
         <Route path="/attendance" element={<Navigate to="/kelas/calendar" replace />} />
         <Route path="/pustaka" element={<PustakaPage />} />
         <Route path="/bacaan" element={<KontrolBacaanPage />} />
+        <Route path="/kehadiran" element={<KehadiranPage />} />
         <Route path="/pustaka/asmaul-husna" element={<PustakaAsmaulPage />} />
         <Route path="/pustaka/karakter-luhur" element={<PustakaKarakterPage />} />
         <Route path="/pustaka/quran" element={<PustakaQuranMushafPage />} />

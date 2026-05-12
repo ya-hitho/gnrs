@@ -149,6 +149,7 @@ func run() error {
 	bacaan := store.NewBacaan(db)
 	pencapaian := store.NewPencapaian(db)
 	settings := store.NewSettings(db)
+	attendances := store.NewAttendances(db)
 
 	if err := store.SeedKarakter(context.Background(), db); err != nil {
 		return fmt.Errorf("seed karakter: %w", err)
@@ -162,6 +163,11 @@ func run() error {
 		return fmt.Errorf("seed hadits himpunan: %w", err)
 	} else if n > 0 {
 		slog.Info("hadits himpunan seeded", "added", n)
+	}
+	if n, err := store.SeedInstansiLogo(context.Background(), db); err != nil {
+		slog.Warn("seed instansi logo failed", "err", err)
+	} else if n > 0 {
+		slog.Info("instansi logo seeded")
 	}
 
 	if cfg.SeedAdminEmail != "" && cfg.SeedAdminPass != "" {
@@ -238,6 +244,14 @@ func run() error {
 
 			settingsH := handler.NewSettings(settings)
 			p.Get("/settings", settingsH.List)
+
+			attendancesH := handler.NewAttendances(attendances)
+			p.Get("/attendances", attendancesH.List)
+			p.Get("/attendances/stats", attendancesH.Stats)
+			p.Get("/attendances/{id}", attendancesH.Get)
+			p.Post("/attendances", attendancesH.Create)
+			p.Patch("/attendances/{id}", attendancesH.Update)
+			p.Delete("/attendances/{id}", attendancesH.Delete)
 
 			kelasH := handler.NewKelas(kelas)
 			p.Get("/kelas", kelasH.List)
@@ -339,7 +353,9 @@ func run() error {
 
 				adm.Patch("/settings", settingsH.Update)
 
+				adm.Post("/hadits/kitab", haditsH.CreateKitab)
 				adm.Patch("/hadits/kitab/{slug}", haditsH.UpdateKitab)
+				adm.Delete("/hadits/kitab/{slug}", haditsH.DeleteKitab)
 
 				adm.Post("/tahun-ajaran", tahunAjaranH.Create)
 				adm.Patch("/tahun-ajaran/{id}", tahunAjaranH.Update)

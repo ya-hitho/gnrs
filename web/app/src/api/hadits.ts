@@ -59,6 +59,32 @@ export function updateKitabJumlahHalaman(slug: string, jumlahHalaman: number) {
   })
 }
 
+export type KitabInput = {
+  slug: string
+  nama: string
+  namaArab?: string | null
+  deskripsi?: string | null
+  perawi?: string | null
+  urutan: number
+  scope: 'hadits' | 'maktabah' | 'both'
+  jumlahHalaman: number
+}
+
+export function createKitab(input: KitabInput) {
+  return apiFetch<HaditsKitab>(`/api/hadits/kitab`, { method: 'POST', body: input })
+}
+
+export function updateKitab(slug: string, input: KitabInput) {
+  return apiFetch<HaditsKitab>(`/api/hadits/kitab/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: input,
+  })
+}
+
+export function deleteKitab(slug: string) {
+  return apiFetch<void>(`/api/hadits/kitab/${encodeURIComponent(slug)}`, { method: 'DELETE' })
+}
+
 export function listBab(slug: string) {
   return apiFetch<HaditsBab[]>(`/api/hadits/kitab/${encodeURIComponent(slug)}/bab`)
 }

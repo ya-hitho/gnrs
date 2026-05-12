@@ -5,7 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+
+	"github.com/oklog/ulid/v2"
 )
+
+// ErrHaditsKitabConflict — slug already exists when creating a kitab.
+var ErrHaditsKitabConflict = errors.New("hadits kitab slug exists")
 
 // HaditsKitab — a hadith book (kitab himpunan / maktabah syamilah).
 type HaditsKitab struct {
@@ -84,6 +89,91 @@ func (s *HaditsStore) ListKitab(ctx context.Context, scope string) ([]HaditsKita
 		out = append(out, k)
 	}
 	return out, rows.Err()
+}
+
+// KitabInput — payload used by Create/Update kitab.
+type KitabInput struct {
+	Slug          string
+	Nama          string
+	NamaArab      *string
+	Deskripsi     *string
+	Perawi        *string
+	Urutan        int
+	Scope         string
+	JumlahHalaman int
+}
+
+// CreateKitab inserts a new hadits kitab. Returns ErrConflict if the slug
+// already exists.
+func (s *HaditsStore) CreateKitab(ctx context.Context, in KitabInput) (*HaditsKitab, error) {
+	id := ulid.Make().String()
+	if in.Scope == "" {
+		in.Scope = "hadits"
+	}
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO hadits_kitab (id, slug, nama, nama_arab, deskripsi, perawi,
+		   urutan, scope, jumlah_halaman)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, in.Slug, in.Nama, in.NamaArab, in.Deskripsi, in.Perawi,
+		in.Urutan, in.Scope, in.JumlahHalaman,
+	)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return nil, ErrHaditsKitabConflict
+		}
+		return nil, err
+	}
+	return s.GetKitabBySlug(ctx, in.Slug)
+}
+
+// UpdateKitab replaces all editable fields of a kitab in one shot.
+func (s *HaditsStore) UpdateKitab(ctx context.Context, slug string, in KitabInput) (*HaditsKitab, error) {
+	if in.Scope == "" {
+		in.Scope = "hadits"
+	}
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE hadits_kitab SET
+		   nama = ?, nama_arab = ?, deskripsi = ?, perawi = ?,
+		   urutan = ?, scope = ?, jumlah_halaman = ?,
+		   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		 WHERE slug = ?`,
+		in.Nama, in.NamaArab, in.Deskripsi, in.Perawi,
+		in.Urutan, in.Scope, in.JumlahHalaman, slug,
+	)
+	if err != nil {
+		return nil, err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return nil, ErrNotFound
+	}
+	return s.GetKitabBySlug(ctx, slug)
+}
+
+// DeleteKitab removes a kitab and its child bab + hadits rows.
+func (s *HaditsStore) DeleteKitab(ctx context.Context, slug string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var kitabID string
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM hadits_kitab WHERE slug = ?`, slug).Scan(&kitabID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM hadits WHERE kitab_id = ?`, kitabID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM hadits_bab WHERE kitab_id = ?`, kitabID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM hadits_kitab WHERE id = ?`, kitabID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // UpdateKitabJumlahHalaman sets the target page count for a kitab himpunan.

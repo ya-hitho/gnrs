@@ -1,0 +1,176 @@
+package model
+
+import "time"
+
+// PhotoURLPrefix is the path that the photo file-server is mounted at.
+// Photo filenames stored in the DB become `PhotoURLPrefix + filename` when
+// serialized for API responses.
+const PhotoURLPrefix = "/api/files/photos/"
+
+// PhotoURL converts a stored photo filename into a fully-qualified URL.
+// Returns nil for nil/empty input so the JSON omitempty tag drops it.
+func PhotoURL(filename *string) *string {
+	if filename == nil || *filename == "" {
+		return nil
+	}
+	u := PhotoURLPrefix + *filename
+	return &u
+}
+
+type Role string
+
+const (
+	RoleAdmin    Role = "admin"
+	RoleStaff    Role = "staff"
+	RolePengurus Role = "pengurus"
+	RoleGuru     Role = "guru"
+	RoleOrtu     Role = "ortu"
+	RoleMurid    Role = "murid"
+)
+
+// AllRoles is the canonical role list, mirrored in the SQL CHECK constraint
+// and the frontend Role union.
+var AllRoles = []Role{RoleAdmin, RoleStaff, RolePengurus, RoleGuru, RoleOrtu, RoleMurid}
+
+// MembershipStatus replaces the old per-role status enums (active/left for
+// students, active/retired for teachers) with a unified set on users.
+type MembershipStatus string
+
+const (
+	MembershipActive  MembershipStatus = "active"
+	MembershipLeft    MembershipStatus = "left"    // murid keluar
+	MembershipRetired MembershipStatus = "retired" // guru purna
+)
+
+type StudentLevel string
+
+const (
+	LevelCaberawit StudentLevel = "Caberawit"
+	LevelPraRemaja StudentLevel = "Pra Remaja"
+	LevelRemaja    StudentLevel = "Remaja"
+	LevelPraNikah  StudentLevel = "Pra Nikah"
+)
+
+// StudentKelompoks is the canonical list of valid kelompok values for murid,
+// mirrored in the SQL CHECK constraint and the frontend dropdown.
+var StudentKelompoks = []string{"California", "Chicago", "New Hampshire", "Canada"}
+
+// User is the single entity for any person in the system. Auth-related fields
+// (Email, Username, Password, Role, Active) are required; everything below
+// MembershipStatus is profile data populated mostly for guru and murid.
+type User struct {
+	// Auth
+	ID       string  `json:"id"`
+	Email    string  `json:"email"`
+	Username *string `json:"username,omitempty"`
+	Password string  `json:"-"`
+	Name     string  `json:"name"`
+	Role     Role    `json:"role"`
+	Active   bool    `json:"active"`
+
+	// Shared profile
+	Nickname    *string    `json:"nickname,omitempty"`
+	DateOfBirth *time.Time `json:"dateOfBirth,omitempty"`
+	Gender      *string    `json:"gender,omitempty"`
+	NoHP        *string    `json:"noHp,omitempty"`
+	Alamat      *string    `json:"alamat,omitempty"`
+	Kelompok    *string    `json:"kelompok,omitempty"`
+
+	// Murid-only
+	Level       *StudentLevel `json:"level,omitempty"`
+	ParentName  *string       `json:"parentName,omitempty"`
+	ParentPhone *string       `json:"parentPhone,omitempty"`
+	ParentEmail *string       `json:"parentEmail,omitempty"`
+
+	// Guru-only
+	Desa   *string `json:"desa,omitempty"`
+	Daerah *string `json:"daerah,omitempty"`
+	Notes  *string `json:"notes,omitempty"`
+
+	// Membership lifecycle
+	JoinedAt         *time.Time       `json:"joinedAt,omitempty"`
+	LeftAt           *time.Time       `json:"leftAt,omitempty"`
+	LeaveReason      *string          `json:"leaveReason,omitempty"`
+	MembershipStatus MembershipStatus `json:"membershipStatus"`
+
+	// Photo: filename inside the photos dir. The handler layer also exposes
+	// a fully-qualified URL via the json:"photoUrl" field when serializing.
+	PhotoPath *string `json:"photoPath,omitempty"`
+	PhotoURL  *string `json:"photoUrl,omitempty"`
+
+	// IANA tz name, e.g., "Asia/Jakarta" or "America/New_York". Used by the
+	// Kehadiran calendar to render local times. nil = app default.
+	Timezone *string `json:"timezone,omitempty"`
+
+	// Taaruf-style biodata extensions (added 2026-05-12 via migration 020).
+	UserCode    *string    `json:"userCode,omitempty"`
+	TempatLahir *string    `json:"tempatLahir,omitempty"`
+	Pendidikan  *string    `json:"pendidikan,omitempty"`
+	Pekerjaan   *string    `json:"pekerjaan,omitempty"`
+	Urutan      int        `json:"urutan"`
+	HideDob     bool       `json:"hideDob"`
+	TglDaftar   *time.Time `json:"tglDaftar,omitempty"`
+
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// Student and Teacher are projection views over User used by the existing
+// /api/students and /api/teachers endpoints. Their JSON shape is preserved
+// (matches the original ppg.fadhil.id contract) so the frontend Generus and
+// Pengajar pages keep working unchanged.
+//
+// They are deliberately structural duplicates of the relevant subset of User
+// fields rather than aliases — the JSON tag naming differs (e.g., teacher
+// uses RetiredAt instead of LeftAt + retired status).
+
+type StudentStatus string
+
+const (
+	StudentActive StudentStatus = "active"
+	StudentLeft   StudentStatus = "left"
+)
+
+type Student struct {
+	ID          string        `json:"id"`
+	Name        string        `json:"name"`
+	Nickname    *string       `json:"nickname,omitempty"`
+	DateOfBirth *time.Time    `json:"dateOfBirth,omitempty"`
+	Gender      string        `json:"gender"`
+	Level       *StudentLevel `json:"level,omitempty"`
+	Kelompok    *string       `json:"kelompok,omitempty"`
+	JoinedAt    *time.Time    `json:"joinedAt,omitempty"`
+	LeftAt      *time.Time    `json:"leftAt,omitempty"`
+	LeaveReason *string       `json:"leaveReason,omitempty"`
+	Status      StudentStatus `json:"status"`
+	ParentName  *string       `json:"parentName,omitempty"`
+	ParentPhone *string       `json:"parentPhone,omitempty"`
+	ParentEmail *string       `json:"parentEmail,omitempty"`
+	PhotoURL    *string       `json:"photoUrl,omitempty"`
+	CreatedAt   time.Time     `json:"createdAt"`
+	UpdatedAt   time.Time     `json:"updatedAt"`
+}
+
+type TeacherStatus string
+
+const (
+	TeacherActive  TeacherStatus = "active"
+	TeacherRetired TeacherStatus = "retired"
+)
+
+type Teacher struct {
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	Nickname  *string       `json:"nickname,omitempty"`
+	Gender    *string       `json:"gender,omitempty"`
+	Kelompok  string        `json:"kelompok"`
+	Desa      string        `json:"desa"`
+	Daerah    string        `json:"daerah"`
+	JoinedAt  *time.Time    `json:"joinedAt,omitempty"`
+	RetiredAt *time.Time    `json:"retiredAt,omitempty"`
+	Status    TeacherStatus `json:"status"`
+	Notes     *string       `json:"notes,omitempty"`
+	PhotoURL  *string       `json:"photoUrl,omitempty"`
+	CreatedAt time.Time     `json:"createdAt"`
+	UpdatedAt time.Time     `json:"updatedAt"`
+}

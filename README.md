@@ -125,12 +125,3 @@ Role is stored on the user row; the seed admin is created with `admin`.
   bind-mount `./data` into the container, chown the host directory
   to UID 1001 first; otherwise use the named volume in the compose
   file.
-
-## Project rules
-
-If you are an AI agent working in this repo, start with
-[`CLAUDE.md`](./CLAUDE.md) — it is the entry point and links the rest:
-[`RULES.md`](./RULES.md) (branch + worktree workflow, commit format),
-[`TEST.md`](./TEST.md) (Chrome DevTools test pass),
-[`CHROME_DEVTOOLS.md`](./CHROME_DEVTOOLS.md) (shared-browser etiquette),
-and [`RELEASE.md`](./RELEASE.md) (promotion to `main`).

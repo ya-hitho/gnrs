@@ -3,17 +3,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronDown, ChevronRight, Minus, Search, X } from 'lucide-react'
 
 import {
+  listLibraryPencapaian,
   listPencapaian,
   upsertPencapaian,
   type PencapaianRow,
   type PencapaianStatus,
 } from '@/api/pencapaian'
+import { LibraryRefLabel } from '@/components/LibraryRefLabel'
 import { listBacaan } from '@/api/bacaan'
+import { listDoa } from '@/api/doa'
+import { listKitab } from '@/api/hadits'
 import { listTingkat, type MateriAjar } from '@/api/kurikulum'
+import { listQuranSurahs } from '@/api/quran'
 import { listStudents } from '@/api/students'
 import { ageInYears } from '@/lib/age'
 import { ApiError } from '@/api/client'
-import { Dialog } from '@/components/Dialog'
 import { Field } from '@/components/Field'
 import { Input } from '@/components/Input'
 import { PageShell, PageHeader } from '@/components/PageShell'
@@ -913,6 +917,61 @@ function LibraryTab() {
   )
 }
 
+// Parsers — mirror the ref-string conventions written by MateriSourcePicker
+// + the importer. Quran: "<surah>" | "<surah>:<ayat>" | "<surah>:<a>-<b>".
+// Hadits: "<slug>" | "<slug>#<nomor>" | "<slug>#<a>-<b>". Tilawati:
+// "<jilid>" | "<jilid>:<page>" | "<jilid>:<a>-<b>".
+function parseQuranRef(ref: string): { surah: number; from?: number; to?: number } | null {
+  const [s, range] = ref.split(':')
+  const surah = Number(s)
+  if (!surah || surah < 1 || surah > 114) return null
+  if (!range) return { surah }
+  if (range.includes('-')) {
+    const [a, b] = range.split('-').map((x) => Number(x.trim()))
+    if (!a) return { surah }
+    return { surah, from: a, to: b || a }
+  }
+  const a = Number(range)
+  if (!a) return { surah }
+  return { surah, from: a, to: a }
+}
+
+function parseHaditsRef(ref: string): { slug: string; from?: number; to?: number } | null {
+  if (!ref) return null
+  const hashIdx = ref.indexOf('#')
+  if (hashIdx < 0) return { slug: ref }
+  const slug = ref.slice(0, hashIdx)
+  const range = ref.slice(hashIdx + 1)
+  if (!slug) return null
+  if (!range) return { slug }
+  if (range.includes('-')) {
+    const [a, b] = range.split('-').map((x) => Number(x.trim()))
+    if (!a) return { slug }
+    return { slug, from: a, to: b || a }
+  }
+  const a = Number(range)
+  if (!a) return { slug }
+  return { slug, from: a, to: a }
+}
+
+function parseTilawatiRef(ref: string): { jilid: string; from?: number; to?: number } | null {
+  const [j, range] = ref.split(':')
+  if (!j) return null
+  if (!range) return { jilid: j }
+  if (range.includes('-')) {
+    const [a, b] = range.split('-').map((x) => Number(x.trim()))
+    if (!a) return { jilid: j }
+    return { jilid: j, from: a, to: b || a }
+  }
+  const a = Number(range)
+  if (!a) return { jilid: j }
+  return { jilid: j, from: a, to: a }
+}
+
+const TILAWATI_PAGES_BY_JILID: Record<string, number> = {
+  '1': 46, '2': 46, '3': 46, '4': 46, '5': 46, '6': 42,
+}
+
 const QURAN_TOTAL_AYAT = 6236
 const TILAWATI_TOTAL_PAGES = 268 // 46*5 + 42
 const HADITS_HIMPUNAN_PAGES = 2607 // sum of seeded jumlah_halaman across 24 kitab himpunan
@@ -926,368 +985,488 @@ function LibraryTrackerGrid({
   fromDate: string
   toDate: string
 }) {
-  const [picked, setPicked] = useState<null | { key: string; title: string }>(null)
   // Pull all bacaan_log rows for the murid in the date range. From this we
   // derive Quran reciting/manqul/hafalan via source/aspect proxy.
-  const { data: logs = [] } = useQuery({
+  useQuery({
     queryKey: ['bacaan', muridUserId, fromDate, toDate],
     queryFn: () => listBacaan({ userId: muridUserId, from: fromDate, to: toDate, limit: 1000 }),
   })
 
-  // Aggregate ayat count by category. For now we treat:
-  //   reciting   = all logs (default reading tracker)
-  //   hafalan    = logs with source='pengajian' as proxy
-  //   manqul     = count of distinct (surah, ayat) entries with the catatan
-  //                field filled — a hint that user wrote a manqul note.
-  const aggregates = useMemo(() => {
-    let recAyat = 0
-    let hafAyat = 0
-    let manqulAyat = 0
-    for (const l of logs) {
-      const n = Math.max(0, (l.ayatTo ?? l.ayatFrom) - l.ayatFrom + 1)
-      recAyat += n
-      if (l.source === 'pengajian') hafAyat += n
-      if (l.catatan && l.catatan.trim() !== '') manqulAyat += n
-    }
-    return { recAyat, hafAyat, manqulAyat }
-  }, [logs])
+  // Pencapaian library rows — every (kind, ref) the murid was ever taught
+  // through a sesi (live or imported historis). Powers the main aggregate
+  // tiles AND the per-item sub-pies.
+  const { data: pencapaian = [] } = useQuery({
+    queryKey: ['pencapaian-library', muridUserId],
+    queryFn: () => listLibraryPencapaian(muridUserId),
+    enabled: !!muridUserId,
+  })
 
-  const trackers = [
-    {
-      key: 'quran-reciting',
-      title: "Al-Qur'an — Bacaan",
-      icon: '📖',
-      done: Math.min(aggregates.recAyat, QURAN_TOTAL_AYAT),
-      total: QURAN_TOTAL_AYAT,
-      unit: 'ayat',
-    },
-    {
-      key: 'quran-manqul',
-      title: "Al-Qur'an — Manqul",
-      icon: '✍️',
-      done: Math.min(aggregates.manqulAyat, QURAN_TOTAL_AYAT),
-      total: QURAN_TOTAL_AYAT,
-      unit: 'ayat',
-    },
-    {
-      key: 'quran-hafalan',
-      title: "Al-Qur'an — Hafalan",
-      icon: '🧠',
-      done: Math.min(aggregates.hafAyat, QURAN_TOTAL_AYAT),
-      total: QURAN_TOTAL_AYAT,
-      unit: 'ayat',
-    },
-    {
-      key: 'hadits-manqul',
-      title: 'Hadits Himpunan — Manqul',
-      icon: '📜',
-      done: 0,
-      total: HADITS_HIMPUNAN_PAGES,
-      unit: 'halaman',
-      hint: 'Belum tersambung — perlu data manqul hadits',
-    },
-    {
-      key: 'tilawati',
-      title: 'Tilawati — Bacaan',
-      icon: '📚',
-      done: 0,
-      total: TILAWATI_TOTAL_PAGES,
-      unit: 'halaman',
-      hint: 'Belum tersambung — perlu data sesi tilawati',
-    },
-    {
-      key: 'doa-hafalan',
-      title: "Doa-doa — Hafalan",
-      icon: '🤲',
-      done: 0,
-      total: 0,
-      unit: 'doa',
-      hint: 'Total doa = jumlah doa di library; data hafalan belum tersambung',
-    },
-  ]
+  const { data: surahs = [] } = useQuery({
+    queryKey: ['quran-surahs'],
+    queryFn: listQuranSurahs,
+    staleTime: 60 * 60_000,
+  })
+  const surahById = useMemo(() => {
+    const m: Record<number, (typeof surahs)[number]> = {}
+    for (const s of surahs) m[s.id] = s
+    return m
+  }, [surahs])
 
-  // Filter the logs that match the picked tracker (for the popup detail).
-  const pickedLogs = useMemo(() => {
-    if (!picked) return []
-    switch (picked.key) {
-      case 'quran-reciting':
-        return logs
-      case 'quran-manqul':
-        return logs.filter((l) => l.catatan && l.catatan.trim() !== '')
-      case 'quran-hafalan':
-        return logs.filter((l) => l.source === 'pengajian')
-      default:
-        return []
+  const { data: kitabs = [] } = useQuery({
+    queryKey: ['hadits-kitab', 'hadits'],
+    queryFn: () => listKitab('hadits'),
+    staleTime: 60 * 60_000,
+  })
+  const kitabBySlug = useMemo(() => {
+    const m: Record<string, (typeof kitabs)[number]> = {}
+    for (const k of kitabs) m[k.slug] = k
+    return m
+  }, [kitabs])
+
+  const { data: doaList = [] } = useQuery({
+    queryKey: ['doa-list'],
+    queryFn: () => listDoa({}),
+    staleTime: 60 * 60_000,
+  })
+
+  // Aspect-scoped breakdown: per (kind, aspect) we keep enough data to render
+  // a main aggregate pie AND derive per-item pies (per surat / per kitab /
+  // per jilid / per doa). aspect "" = unspecified (legacy rows without an
+  // aspect tag); rendered as "Lainnya".
+  const breakdown = useMemo(() => {
+    type QuranItem = { covered: Set<number> }
+    type HaditsItem = { covered: Set<number>; whole: boolean }
+    type TilawatiItem = { covered: Set<number> }
+    const quran = new Map<string, Map<number, QuranItem>>()    // aspect → surah → bucket
+    const hadits = new Map<string, Map<string, HaditsItem>>()  // aspect → slug → bucket
+    const tilawati = new Map<string, Map<string, TilawatiItem>>() // aspect → jilid → bucket
+    const doa = new Map<string, Set<string>>()                  // aspect → set(doaId)
+    for (const p of pencapaian) {
+      const aspect = p.libraryAspect ?? ''
+      if (p.libraryKind === 'quran' && p.libraryRef) {
+        const parsed = parseQuranRef(p.libraryRef)
+        if (!parsed) continue
+        const total = surahById[parsed.surah]?.jumlahAyat ?? 0
+        let byAspect = quran.get(aspect)
+        if (!byAspect) {
+          byAspect = new Map()
+          quran.set(aspect, byAspect)
+        }
+        const cur = byAspect.get(parsed.surah) ?? { covered: new Set<number>() }
+        if (parsed.from && parsed.to) {
+          for (let a = parsed.from; a <= parsed.to && a <= total; a++) cur.covered.add(a)
+        } else if (total > 0) {
+          for (let a = 1; a <= total; a++) cur.covered.add(a)
+        }
+        byAspect.set(parsed.surah, cur)
+      } else if (p.libraryKind === 'hadits' && p.libraryRef) {
+        const parsed = parseHaditsRef(p.libraryRef)
+        if (!parsed) continue
+        let byAspect = hadits.get(aspect)
+        if (!byAspect) {
+          byAspect = new Map()
+          hadits.set(aspect, byAspect)
+        }
+        const cur = byAspect.get(parsed.slug) ?? { covered: new Set<number>(), whole: false }
+        if (parsed.from && parsed.to) {
+          for (let n = parsed.from; n <= parsed.to; n++) cur.covered.add(n)
+        } else {
+          cur.whole = true
+        }
+        byAspect.set(parsed.slug, cur)
+      } else if (p.libraryKind === 'tilawati' && p.libraryRef) {
+        const parsed = parseTilawatiRef(p.libraryRef)
+        if (!parsed) continue
+        const total = TILAWATI_PAGES_BY_JILID[parsed.jilid] ?? 46
+        let byAspect = tilawati.get(aspect)
+        if (!byAspect) {
+          byAspect = new Map()
+          tilawati.set(aspect, byAspect)
+        }
+        const cur = byAspect.get(parsed.jilid) ?? { covered: new Set<number>() }
+        if (parsed.from && parsed.to) {
+          for (let pg = parsed.from; pg <= parsed.to && pg <= total; pg++) cur.covered.add(pg)
+        } else {
+          for (let pg = 1; pg <= total; pg++) cur.covered.add(pg)
+        }
+        byAspect.set(parsed.jilid, cur)
+      } else if (p.libraryKind === 'doa' && p.libraryRef) {
+        let set = doa.get(aspect)
+        if (!set) {
+          set = new Set<string>()
+          doa.set(aspect, set)
+        }
+        set.add(p.libraryRef)
+      }
     }
-  }, [logs, picked])
+    return { quran, hadits, tilawati, doa }
+  }, [pencapaian, surahById])
+
+  // Pre-defined main pies: per (kind, aspect). Aspects that don't make sense
+  // for a kind are skipped (e.g. Hadits only has manqul). aspect "" is used
+  // for "no aspect attached" — legacy/imported sesi often omit it.
+  type MainTile = {
+    kind: 'quran' | 'hadits' | 'tilawati' | 'doa'
+    aspect: '' | 'reciting' | 'memorizing' | 'review' | 'manqul'
+    label: string
+    icon: string
+    done: number
+    total: number
+    unit: string
+  }
+  const ASPECT_LABEL_ID: Record<string, string> = {
+    reciting: 'Bacaan',
+    memorizing: 'Hafalan',
+    review: 'Mengulang',
+    manqul: 'Manqul',
+    '': 'Lainnya',
+  }
+  const KIND_LABEL_ID: Record<MainTile['kind'], string> = {
+    quran: "Al-Qur'an",
+    hadits: 'Hadits',
+    tilawati: 'Tilawati',
+    doa: 'Doa-doa',
+  }
+  const KIND_ICON: Record<MainTile['kind'], string> = {
+    quran: '📖',
+    hadits: '📜',
+    tilawati: '📚',
+    doa: '🤲',
+  }
+
+  const haditsTotalPages = useMemo(() => {
+    let tot = 0
+    for (const k of kitabs) tot += k.jumlahHalaman
+    return tot || HADITS_HIMPUNAN_PAGES
+  }, [kitabs])
+
+  // Build main tiles for every (kind, aspect) combination that has data.
+  const mainTiles: MainTile[] = useMemo(() => {
+    const out: MainTile[] = []
+    // QURAN per aspect
+    for (const [aspect, byAspect] of breakdown.quran) {
+      let covered = 0
+      for (const [, b] of byAspect) covered += b.covered.size
+      out.push({
+        kind: 'quran',
+        aspect: aspect as MainTile['aspect'],
+        label: `${KIND_LABEL_ID.quran} · ${ASPECT_LABEL_ID[aspect] ?? aspect}`,
+        icon: KIND_ICON.quran,
+        done: covered,
+        total: QURAN_TOTAL_AYAT,
+        unit: 'ayat',
+      })
+    }
+    // HADITS per aspect
+    for (const [aspect, byAspect] of breakdown.hadits) {
+      let halaman = 0
+      for (const [slug, b] of byAspect) {
+        const k = kitabBySlug[slug]
+        if (!k) continue
+        if (b.whole) halaman += k.jumlahHalaman
+        else if (k.haditsCount > 0) {
+          halaman += Math.round((b.covered.size / k.haditsCount) * k.jumlahHalaman)
+        }
+      }
+      out.push({
+        kind: 'hadits',
+        aspect: aspect as MainTile['aspect'],
+        label: `${KIND_LABEL_ID.hadits} · ${ASPECT_LABEL_ID[aspect] ?? aspect}`,
+        icon: KIND_ICON.hadits,
+        done: Math.min(halaman, haditsTotalPages),
+        total: haditsTotalPages,
+        unit: 'halaman',
+      })
+    }
+    // TILAWATI per aspect
+    for (const [aspect, byAspect] of breakdown.tilawati) {
+      let pages = 0
+      for (const [, b] of byAspect) pages += b.covered.size
+      out.push({
+        kind: 'tilawati',
+        aspect: aspect as MainTile['aspect'],
+        label: `${KIND_LABEL_ID.tilawati} · ${ASPECT_LABEL_ID[aspect] ?? aspect}`,
+        icon: KIND_ICON.tilawati,
+        done: Math.min(pages, TILAWATI_TOTAL_PAGES),
+        total: TILAWATI_TOTAL_PAGES,
+        unit: 'halaman',
+      })
+    }
+    // DOA per aspect
+    for (const [aspect, set] of breakdown.doa) {
+      out.push({
+        kind: 'doa',
+        aspect: aspect as MainTile['aspect'],
+        label: `${KIND_LABEL_ID.doa} · ${ASPECT_LABEL_ID[aspect] ?? aspect}`,
+        icon: KIND_ICON.doa,
+        done: set.size,
+        total: doaList.length || set.size || 1,
+        unit: 'doa',
+      })
+    }
+    return out.sort((a, b) =>
+      a.kind === b.kind ? a.aspect.localeCompare(b.aspect) : a.kind.localeCompare(b.kind),
+    )
+  }, [breakdown, kitabBySlug, haditsTotalPages, doaList])
+
+  // Currently picked tile = which (kind, aspect) the user clicked. null →
+  // no detail panel shown.
+  const [pickedTile, setPickedTile] = useState<{
+    kind: MainTile['kind']
+    aspect: MainTile['aspect']
+  } | null>(null)
+
+  // Reset selection when the murid changes.
+  useEffect(() => {
+    setPickedTile(null)
+  }, [muridUserId])
+
+  // Per-item pies for the selected (kind, aspect).
+  type ItemTile = { key: string; label: string; done: number; total: number; sortBy: number }
+  const itemTiles: ItemTile[] = useMemo(() => {
+    if (!pickedTile) return []
+    const { kind, aspect } = pickedTile
+    if (kind === 'quran') {
+      const byAspect = breakdown.quran.get(aspect)
+      if (!byAspect) return []
+      const out: ItemTile[] = []
+      for (const [surah, b] of byAspect) {
+        const total = surahById[surah]?.jumlahAyat ?? 0
+        const nama = surahById[surah]?.nama ?? `Surat ${surah}`
+        out.push({
+          key: `quran-${surah}`,
+          label: `${surah}. ${nama}`,
+          done: b.covered.size,
+          total,
+          sortBy: surah,
+        })
+      }
+      return out.sort((a, b) => a.sortBy - b.sortBy)
+    }
+    if (kind === 'hadits') {
+      const byAspect = breakdown.hadits.get(aspect)
+      if (!byAspect) return []
+      const out: ItemTile[] = []
+      for (const [slug, b] of byAspect) {
+        const k = kitabBySlug[slug]
+        const total = k?.haditsCount ?? 0
+        const nama = k?.nama ?? slug
+        const done = b.whole ? total : b.covered.size
+        out.push({
+          key: `hadits-${slug}`,
+          label: nama,
+          done,
+          total: total || done || 1,
+          sortBy: k?.urutan ?? 999,
+        })
+      }
+      return out.sort((a, b) => a.sortBy - b.sortBy)
+    }
+    if (kind === 'tilawati') {
+      const byAspect = breakdown.tilawati.get(aspect)
+      if (!byAspect) return []
+      const out: ItemTile[] = []
+      for (const [jilid, b] of byAspect) {
+        const total = TILAWATI_PAGES_BY_JILID[jilid] ?? 46
+        out.push({
+          key: `tilawati-${jilid}`,
+          label: `Jilid ${jilid}`,
+          done: b.covered.size,
+          total,
+          sortBy: Number(jilid) || 99,
+        })
+      }
+      return out.sort((a, b) => a.sortBy - b.sortBy)
+    }
+    if (kind === 'doa') {
+      const set = breakdown.doa.get(aspect)
+      if (!set) return []
+      const out: ItemTile[] = []
+      let i = 0
+      for (const id of set) {
+        const d = doaList.find((x) => x.id === id)
+        out.push({
+          key: `doa-${id}`,
+          label: d?.nama ?? id.slice(0, 8),
+          done: 1,
+          total: 1,
+          sortBy: i++,
+        })
+      }
+      return out.sort((a, b) => a.label.localeCompare(b.label))
+    }
+    return []
+  }, [pickedTile, breakdown, surahById, kitabBySlug, doaList])
+
+  // Riwayat list filtered by the selected (kind, aspect). One row per
+  // pencapaian entry, sorted by tanggal desc.
+  const riwayat = useMemo(() => {
+    if (!pickedTile) return []
+    return pencapaian
+      .filter(
+        (p) =>
+          p.libraryKind === pickedTile.kind &&
+          (p.libraryAspect ?? '') === pickedTile.aspect,
+      )
+      .sort((a, b) => (b.tanggal ?? '').localeCompare(a.tanggal ?? ''))
+  }, [pencapaian, pickedTile])
+
+  if (mainTiles.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">
+        Belum ada pencapaian library untuk murid ini. Setiap sesi yang
+        diakhiri otomatis menambahkan progress di sini.
+      </div>
+    )
+  }
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {trackers.map((t) => (
-          <TrackerCard
-            key={t.key}
-            icon={t.icon}
-            title={t.title}
-            done={t.done}
-            total={t.total}
-            unit={t.unit}
-            hint={(t as { hint?: string }).hint}
-            onClick={() => setPicked({ key: t.key, title: t.title })}
-          />
-        ))}
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-900">
+            Pencapaian Library — Per Aspek
+          </h3>
+          <p className="text-[11px] text-slate-500">
+            Klik salah satu pie untuk lihat rincian per item + riwayat sesi.
+          </p>
+        </div>
+        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+          {mainTiles.map((t) => {
+            const selected =
+              pickedTile?.kind === t.kind && pickedTile?.aspect === t.aspect
+            return (
+              <button
+                key={`${t.kind}-${t.aspect}`}
+                type="button"
+                onClick={() =>
+                  setPickedTile((cur) =>
+                    cur && cur.kind === t.kind && cur.aspect === t.aspect
+                      ? null
+                      : { kind: t.kind, aspect: t.aspect },
+                  )
+                }
+                className={cn(
+                  'flex w-32 flex-shrink-0 flex-col items-center rounded-lg border p-2 text-center transition',
+                  selected
+                    ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50',
+                )}
+              >
+                <DonutChart
+                  pct={t.total > 0 ? Math.min(100, Math.round((t.done / t.total) * 100)) : 0}
+                  centerLabel={`${t.total > 0 ? Math.min(100, Math.round((t.done / t.total) * 100)) : 0}%`}
+                />
+                <div className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-slate-800">
+                  <span className="text-sm">{t.icon}</span>
+                  <span className="line-clamp-2">{t.label}</span>
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  {t.done.toLocaleString('id-ID')} / {t.total.toLocaleString('id-ID')} {t.unit}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        {pickedTile && itemTiles.length > 0 ? (
+          <div className="mt-4 border-t border-slate-200 pt-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Per Item ({itemTiles.length})
+            </div>
+            <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+              {itemTiles.map((t) => {
+                const pct = t.total > 0 ? Math.min(100, Math.round((t.done / t.total) * 100)) : 0
+                return (
+                  <div
+                    key={t.key}
+                    className="flex w-28 flex-shrink-0 flex-col items-center rounded-lg border border-slate-200 bg-white p-2 text-center"
+                  >
+                    <DonutChart pct={pct} centerLabel={`${pct}%`} />
+                    <div className="mt-1 line-clamp-2 text-[11px] font-medium text-slate-800">
+                      {t.label}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {t.done}/{t.total}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
-      {picked ? (
-        <TrackerDetailDialog
-          title={picked.title}
-          logs={pickedLogs}
-          onClose={() => setPicked(null)}
-        />
+
+      {pickedTile ? (
+        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-lg border-b border-slate-200 bg-white/95 px-4 py-2 backdrop-blur">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Riwayat Sesi — {KIND_LABEL_ID[pickedTile.kind]} · {ASPECT_LABEL_ID[pickedTile.aspect] ?? 'Lainnya'}
+              <span className="ml-2 text-xs font-normal text-slate-500">
+                {riwayat.length} entri
+              </span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setPickedTile(null)}
+              className="rounded-md p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              aria-label="Tutup"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="max-h-[60vh] overflow-y-auto px-4 py-2">
+            {riwayat.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">
+                Belum ada riwayat untuk aspek ini.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-100 text-sm">
+                {riwayat.map((p) => (
+                  <li key={p.id} className="flex items-start gap-3 py-2">
+                    <span className="w-20 flex-shrink-0 text-xs tabular-nums text-slate-500">
+                      {(p.tanggal ?? '').slice(0, 10) || '—'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <LibraryRefLabel
+                        libraryKind={p.libraryKind as 'quran' | 'hadits' | 'tilawati' | 'doa'}
+                        libraryRef={p.libraryRef}
+                        libraryAspect={p.libraryAspect}
+                        showKind={false}
+                      />
+                    </span>
+                    <span
+                      className={cn(
+                        'inline-block flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                        p.status === 'tuntas'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : p.status === 'proses'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-slate-100 text-slate-600',
+                      )}
+                    >
+                      {p.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       ) : null}
+
     </>
   )
 }
 
-// Group logs by surah → { surah, ayatRead = max(ayatTo), sessions, source }
-// and split into 'in progress' (ayatRead < total) vs 'completed' (≥).
-type SurahAgg = { surah: number; ayatRead: number; sessions: number }
-
-function aggregateBySurah(
-  logs: { surah: number; ayatFrom: number; ayatTo: number }[],
-): SurahAgg[] {
-  const map = new Map<number, SurahAgg>()
-  for (const l of logs) {
-    const cur = map.get(l.surah) ?? { surah: l.surah, ayatRead: 0, sessions: 0 }
-    cur.ayatRead = Math.max(cur.ayatRead, l.ayatTo || l.ayatFrom)
-    cur.sessions += 1
-    map.set(l.surah, cur)
-  }
-  return [...map.values()].sort((a, b) => a.surah - b.surah)
-}
-
-function TrackerDetailDialog({
-  title,
-  logs,
-  onClose,
-}: {
-  title: string
-  logs: { id: string; surah: number; ayatFrom: number; ayatTo: number; tanggal: string; source: string; catatan?: string | null }[]
-  onClose: () => void
-}) {
-  const { data: surahs = [] } = useQuery({
-    queryKey: ['quran-surahs'],
-    queryFn: () => import('@/api/quran').then((m) => m.listQuranSurahs()),
-    staleTime: 60 * 60_000,
-  })
-  const surahById = useMemo(() => new Map(surahs.map((s) => [s.id, s])), [surahs])
-
-  const aggs = useMemo(() => aggregateBySurah(logs), [logs])
-  // Split into in-progress (not yet covering full surah) vs completed.
-  const inProgress: SurahAgg[] = []
-  const completed: SurahAgg[] = []
-  for (const a of aggs) {
-    const total = surahById.get(a.surah)?.jumlahAyat ?? a.ayatRead
-    if (total > 0 && a.ayatRead >= total) completed.push(a)
-    else inProgress.push(a)
-  }
-
-  return (
-    <Dialog title={title} onClose={onClose} size="lg">
-      <div className="space-y-4">
-        <div className="text-xs text-slate-500">
-          {logs.length} catatan · {inProgress.length} sedang progress ·{' '}
-          {completed.length} selesai
-        </div>
-
-        {/* Donut strip — sedang progress + selesai. Mirrors the
-            BacaanProgressPanel layout, scrollable horizontally. */}
-        {(inProgress.length > 0 || completed.length > 0) ? (
-          <>
-            {inProgress.length > 0 ? (
-              <div>
-                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                  Sedang progress ({inProgress.length})
-                </div>
-                <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
-                  {inProgress.map((a) => (
-                    <SurahDonutMini
-                      key={a.surah}
-                      agg={a}
-                      total={surahById.get(a.surah)?.jumlahAyat ?? a.ayatRead}
-                      label={surahById.get(a.surah)?.nama}
-                      color="amber"
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {completed.length > 0 ? (
-              <div>
-                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-                  Selesai ({completed.length})
-                </div>
-                <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
-                  {completed.map((a) => (
-                    <SurahDonutMini
-                      key={a.surah}
-                      agg={a}
-                      total={surahById.get(a.surah)?.jumlahAyat ?? a.ayatRead}
-                      label={surahById.get(a.surah)?.nama}
-                      color="emerald"
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <p className="rounded-md bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
-            Belum ada progress untuk aspek ini di rentang waktu yang dipilih.
-          </p>
-        )}
-
-        {/* Riwayat catatan */}
-        {logs.length > 0 ? (
-          <div>
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Riwayat catatan
-            </div>
-            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
-              {logs.map((l) => (
-                <li key={l.id} className="flex items-start gap-3 px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                      Surah {l.surah} · ayat {l.ayatFrom}
-                      {l.ayatTo !== l.ayatFrom ? `–${l.ayatTo}` : ''}
-                      <span
-                        className={
-                          'rounded-full px-2 py-0.5 text-[10px] font-medium ' +
-                          (l.source === 'pengajian'
-                            ? 'bg-violet-100 text-violet-700'
-                            : 'bg-slate-100 text-slate-600')
-                        }
-                      >
-                        {l.source}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-500">{l.tanggal}</div>
-                    {l.catatan ? (
-                      <div className="mt-0.5 text-xs text-slate-600">{l.catatan}</div>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
-    </Dialog>
-  )
-}
-
-function SurahDonutMini({
-  agg,
-  total,
-  label,
-  color,
-}: {
-  agg: SurahAgg
-  total: number
-  label?: string
-  color: 'emerald' | 'amber'
-}) {
-  const pct = total > 0 ? Math.min(100, Math.round((agg.ayatRead / total) * 100)) : 0
-  const radius = 40
-  const circumference = 2 * Math.PI * radius
-  const filled = Math.max(0, Math.min(100, pct)) / 100
-  const ringColor = color === 'amber' ? '#f59e0b' : '#059669'
-  const trackColor = color === 'amber' ? '#fef3c7' : '#d1fae5'
-  const labelColor = color === 'amber' ? 'text-amber-900' : 'text-emerald-900'
-  return (
-    <div className="flex w-20 flex-shrink-0 flex-col items-center text-center">
-      <div className="relative h-16 w-16">
-        <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-          <circle cx="50" cy="50" r={radius} fill="none" stroke={trackColor} strokeWidth="14" />
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke={ringColor}
-            strokeWidth="14"
-            strokeDasharray={`${filled * circumference} ${circumference}`}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className={'absolute inset-0 flex items-center justify-center text-xs font-bold ' + labelColor}>
-          {pct}%
-        </div>
-      </div>
-      <div className="mt-1 line-clamp-2 text-[10px] font-medium text-slate-800">
-        {agg.surah}. {label ?? `Surah ${agg.surah}`}
-      </div>
-      <div className="text-[10px] text-slate-500">
-        {agg.ayatRead}/{total}
-      </div>
-    </div>
-  )
-}
-
-function TrackerCard({
-  icon,
-  title,
-  done,
-  total,
-  unit,
-  hint,
-  onClick,
-}: {
-  icon: string
-  title: string
-  done: number
-  total: number
-  unit: string
-  hint?: string
-  onClick?: () => void
-}) {
-  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      className="rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 hover:shadow disabled:cursor-default disabled:hover:border-slate-200 disabled:hover:shadow-sm"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="text-lg">{icon}</span>
-            <div className="text-sm font-semibold text-slate-800">{title}</div>
-          </div>
-          <div className="mt-2 text-xs text-slate-500">
-            {done.toLocaleString('id-ID')} / {total.toLocaleString('id-ID')} {unit}
-          </div>
-        </div>
-        <div className="flex flex-col items-center">
-          <TinyDonut pct={pct} />
-          {/* Persentase penambahan materi — kecil simpel beside the pie. */}
-          <span className="mt-1 text-[10px] font-medium text-emerald-700">+{pct}%</span>
-        </div>
-      </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
-      </div>
-      {hint ? <p className="mt-2 text-[10px] text-slate-400">{hint}</p> : null}
-    </button>
-  )
-}
-
-function TinyDonut({ pct }: { pct: number }) {
+// DonutChart — slightly bigger version for the Library tab tiles. Matches
+// the look of KontrolBacaan's per-surah donuts.
+function DonutChart({ pct, centerLabel }: { pct: number; centerLabel: string }) {
   const radius = 40
   const circumference = 2 * Math.PI * radius
   const filled = Math.max(0, Math.min(100, pct)) / 100
   return (
-    <div className="relative h-14 w-14 shrink-0">
+    <div className="relative h-16 w-16">
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
         <circle cx="50" cy="50" r={radius} fill="none" stroke="#d1fae5" strokeWidth="14" />
         <circle
@@ -1302,8 +1481,9 @@ function TinyDonut({ pct }: { pct: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-emerald-900">
-        {pct}%
+        {centerLabel}
       </div>
     </div>
   )
 }
+

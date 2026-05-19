@@ -130,14 +130,38 @@ func (h *Pencapaian) List(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, out)
 }
 
+// ListLibrary returns every library-style pencapaian row for one murid —
+// the kurikulum List handler omits these because they have no matching
+// materi_ajar. Frontend uses this for the "Library" section on Achievement.
+func (h *Pencapaian) ListLibrary(w http.ResponseWriter, r *http.Request) {
+	muridID := strings.TrimSpace(r.URL.Query().Get("muridUserId"))
+	if muridID == "" {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "muridUserId wajib")
+		return
+	}
+	if !h.canSeeMurid(r, muridID) {
+		httpx.Error(w, http.StatusForbidden, "forbidden", "tidak boleh melihat murid ini")
+		return
+	}
+	rows, err := h.s.ListLibraryForMurid(r.Context(), muridID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "gagal memuat library pencapaian")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, rows)
+}
+
 type pencapaianUpsertBody struct {
-	MuridUserID  string  `json:"muridUserId"  validate:"required"`
-	MateriAjarID string  `json:"materiAjarId" validate:"required"`
-	Status       string  `json:"status"       validate:"required,oneof=belum proses tuntas"`
-	NilaiAngka   *int    `json:"nilaiAngka,omitempty"   validate:"omitempty,gte=0,lte=100"`
-	NilaiHuruf   *string `json:"nilaiHuruf,omitempty"   validate:"omitempty,max=4"`
-	Tanggal      *string `json:"tanggal,omitempty"`
-	Catatan      *string `json:"catatan,omitempty"`
+	MuridUserID   string  `json:"muridUserId"  validate:"required"`
+	MateriAjarID  *string `json:"materiAjarId,omitempty"`
+	LibraryKind   *string `json:"libraryKind,omitempty"   validate:"omitempty,oneof=quran hadits tilawati doa"`
+	LibraryAspect *string `json:"libraryAspect,omitempty" validate:"omitempty,oneof=reciting memorizing review manqul"`
+	LibraryRef    *string `json:"libraryRef,omitempty"    validate:"omitempty,max=500"`
+	Status        string  `json:"status"       validate:"required,oneof=belum proses tuntas"`
+	NilaiAngka    *int    `json:"nilaiAngka,omitempty"   validate:"omitempty,gte=0,lte=100"`
+	NilaiHuruf    *string `json:"nilaiHuruf,omitempty"   validate:"omitempty,max=4"`
+	Tanggal       *string `json:"tanggal,omitempty"`
+	Catatan       *string `json:"catatan,omitempty"`
 }
 
 func (h *Pencapaian) Upsert(w http.ResponseWriter, r *http.Request) {
@@ -156,16 +180,19 @@ func (h *Pencapaian) Upsert(w http.ResponseWriter, r *http.Request) {
 	}
 	c, _ := auth.ClaimsFrom(r.Context())
 	row, err := h.s.Upsert(r.Context(), store.PencapaianUpsertInput{
-		MuridUserID:  b.MuridUserID,
-		MateriAjarID: b.MateriAjarID,
-		Status:       b.Status,
-		NilaiAngka:   b.NilaiAngka,
-		NilaiHuruf:   b.NilaiHuruf,
-		Tanggal:      b.Tanggal,
-		Catatan:      b.Catatan,
+		MuridUserID:   b.MuridUserID,
+		MateriAjarID:  b.MateriAjarID,
+		LibraryKind:   b.LibraryKind,
+		LibraryAspect: b.LibraryAspect,
+		LibraryRef:    b.LibraryRef,
+		Status:        b.Status,
+		NilaiAngka:    b.NilaiAngka,
+		NilaiHuruf:    b.NilaiHuruf,
+		Tanggal:       b.Tanggal,
+		Catatan:       b.Catatan,
 	}, c.UserID)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "gagal menyimpan pencapaian")
+		httpx.Error(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	httpx.JSON(w, http.StatusOK, row)

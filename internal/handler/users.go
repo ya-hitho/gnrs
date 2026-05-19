@@ -43,10 +43,12 @@ type userCreateBody struct {
 	Kelompok    *string `json:"kelompok,omitempty"     validate:"omitempty,max=200"`
 
 	// Murid
-	Level       *string `json:"level,omitempty"        validate:"omitempty,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
-	ParentName  *string `json:"parentName,omitempty"   validate:"omitempty,max=200"`
-	ParentPhone *string `json:"parentPhone,omitempty"  validate:"omitempty,max=64"`
-	ParentEmail *string `json:"parentEmail,omitempty"  validate:"omitempty,email"`
+	Level             *string `json:"level,omitempty"             validate:"omitempty,oneof=Caberawit 'Pra Remaja' Remaja 'Pra Nikah'"`
+	ParentName        *string `json:"parentName,omitempty"        validate:"omitempty,max=200"`
+	ParentTitle       *string `json:"parentTitle,omitempty"       validate:"omitempty,max=80"`
+	ParentPhone       *string `json:"parentPhone,omitempty"       validate:"omitempty,max=64"`
+	ParentPhoneRegion *string `json:"parentPhoneRegion,omitempty" validate:"omitempty,oneof=ID SG US CA"`
+	ParentEmail       *string `json:"parentEmail,omitempty"       validate:"omitempty,email"`
 
 	// Guru
 	Desa   *string `json:"desa,omitempty"   validate:"omitempty,max=200"`
@@ -83,10 +85,12 @@ type userUpdateBody struct {
 	Alamat      *string `json:"alamat,omitempty"       validate:"omitempty,max=500"`
 	Kelompok    *string `json:"kelompok,omitempty"     validate:"omitempty,max=200"`
 
-	Level       *string `json:"level,omitempty"        validate:"omitempty"`
-	ParentName  *string `json:"parentName,omitempty"   validate:"omitempty,max=200"`
-	ParentPhone *string `json:"parentPhone,omitempty"  validate:"omitempty,max=64"`
-	ParentEmail *string `json:"parentEmail,omitempty"  validate:"omitempty"`
+	Level             *string `json:"level,omitempty"             validate:"omitempty"`
+	ParentName        *string `json:"parentName,omitempty"        validate:"omitempty,max=200"`
+	ParentTitle       *string `json:"parentTitle,omitempty"       validate:"omitempty,max=80"`
+	ParentPhone       *string `json:"parentPhone,omitempty"       validate:"omitempty,max=64"`
+	ParentPhoneRegion *string `json:"parentPhoneRegion,omitempty" validate:"omitempty,oneof=ID SG US CA"`
+	ParentEmail       *string `json:"parentEmail,omitempty"       validate:"omitempty"`
 
 	Desa   *string `json:"desa,omitempty"   validate:"omitempty,max=200"`
 	Daerah *string `json:"daerah,omitempty" validate:"omitempty,max=200"`
@@ -180,9 +184,11 @@ func (h *Users) Create(w http.ResponseWriter, r *http.Request) {
 		NoHP:        trimOptional(b.NoHP),
 		Alamat:      trimOptional(b.Alamat),
 		Kelompok:    trimOptional(b.Kelompok),
-		ParentName:  trimOptional(b.ParentName),
-		ParentPhone: trimOptional(b.ParentPhone),
-		ParentEmail: trimOptional(b.ParentEmail),
+		ParentName:        trimOptional(b.ParentName),
+		ParentTitle:       trimOptional(b.ParentTitle),
+		ParentPhone:       trimOptional(b.ParentPhone),
+		ParentPhoneRegion: trimOptional(b.ParentPhoneRegion),
+		ParentEmail:       trimOptional(b.ParentEmail),
 		Desa:        trimOptional(b.Desa),
 		Daerah:      trimOptional(b.Daerah),
 		Notes:       trimOptional(b.Notes),
@@ -279,9 +285,11 @@ func (h *Users) Update(w http.ResponseWriter, r *http.Request) {
 		NoHP:        b.NoHP,
 		Alamat:      b.Alamat,
 		Kelompok:    b.Kelompok,
-		ParentName:  b.ParentName,
-		ParentPhone: b.ParentPhone,
-		ParentEmail: b.ParentEmail,
+		ParentName:        b.ParentName,
+		ParentTitle:       b.ParentTitle,
+		ParentPhone:       b.ParentPhone,
+		ParentPhoneRegion: b.ParentPhoneRegion,
+		ParentEmail:       b.ParentEmail,
 		Desa:        b.Desa,
 		Daerah:      b.Daerah,
 		Notes:       b.Notes,

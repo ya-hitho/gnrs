@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Building2, CalendarRange, GraduationCap, ShieldCheck } from 'lucide-react'
+import { Building2, CalendarRange, GraduationCap, MessageCircle, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 export function SettingsLayout() {
@@ -22,6 +22,11 @@ export function SettingsLayout() {
             to="/pengaturan/tahun-ajaran"
             icon={<CalendarRange size={16} />}
             label="Tahun Ajaran"
+          />
+          <TabLink
+            to="/pengaturan/whatsapp"
+            icon={<MessageCircle size={16} />}
+            label="WhatsApp"
           />
         </div>
       </div>

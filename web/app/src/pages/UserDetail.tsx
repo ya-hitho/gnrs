@@ -172,8 +172,16 @@ function ReadOnlyView({ user: u }: { user: ManagedUser }) {
         <Card title="Data Murid">
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
             <Row label="Jenjang" value={u.level ?? '—'} />
+            <Row label="Sebutan orang tua" value={u.parentTitle ?? '—'} />
             <Row label="Nama orang tua" value={u.parentName ?? '—'} />
-            <Row label="Telepon orang tua" value={u.parentPhone ?? '—'} />
+            <Row
+              label="WhatsApp orang tua"
+              value={
+                u.parentPhone
+                  ? `+${({ ID: '62', SG: '65', US: '1', CA: '1' } as any)[u.parentPhoneRegion ?? 'ID'] ?? '62'}${u.parentPhone.replace(/^0+/, '')}`
+                  : '—'
+              }
+            />
             <Row label="Email orang tua" value={u.parentEmail ?? '—'} className="sm:col-span-2" />
           </dl>
         </Card>
@@ -206,7 +214,9 @@ type FormState = {
   kelompok: string
   level: '' | StudentLevel
   parentName: string
+  parentTitle: string
   parentPhone: string
+  parentPhoneRegion: 'ID' | 'SG' | 'US' | 'CA'
   parentEmail: string
   desa: string
   daerah: string
@@ -232,7 +242,9 @@ function userToFormState(u: ManagedUser): FormState {
     kelompok: u.kelompok ?? '',
     level: u.level ?? '',
     parentName: u.parentName ?? '',
+    parentTitle: u.parentTitle ?? '',
     parentPhone: u.parentPhone ?? '',
+    parentPhoneRegion: u.parentPhoneRegion ?? 'ID',
     parentEmail: u.parentEmail ?? '',
     desa: u.desa ?? '',
     daerah: u.daerah ?? '',
@@ -294,7 +306,9 @@ function EditForm({
           kelompok: f.kelompok.trim(),
           level: f.level || ('' as StudentLevel),
           parentName: f.parentName.trim(),
+          parentTitle: f.parentTitle.trim(),
           parentPhone: f.parentPhone.trim(),
+          parentPhoneRegion: f.parentPhoneRegion,
           parentEmail: f.parentEmail.trim(),
           desa: f.desa.trim(),
           daerah: f.daerah.trim(),
@@ -425,11 +439,26 @@ function EditForm({
                 ))}
               </select>
             </Field>
+            <Field label="Sebutan orang tua" htmlFor="parentTitle" hint="Mis. Bapak, Ibu, Ayahnya, Bunda…">
+              <Input id="parentTitle" value={f.parentTitle} onChange={(e) => update('parentTitle', e.target.value)} placeholder="Bapak" />
+            </Field>
             <Field label="Nama orang tua" htmlFor="parentName">
               <Input id="parentName" value={f.parentName} onChange={(e) => update('parentName', e.target.value)} />
             </Field>
-            <Field label="Telepon orang tua" htmlFor="parentPhone">
-              <Input id="parentPhone" value={f.parentPhone} onChange={(e) => update('parentPhone', e.target.value)} />
+            <Field label="Nomor WhatsApp orang tua" htmlFor="parentPhone">
+              <div className="flex gap-2">
+                <select
+                  value={f.parentPhoneRegion}
+                  onChange={(e) => update('parentPhoneRegion', e.target.value as FormState['parentPhoneRegion'])}
+                  className="h-10 rounded-md border border-slate-300 bg-white px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                >
+                  <option value="ID">🇮🇩 +62</option>
+                  <option value="SG">🇸🇬 +65</option>
+                  <option value="US">🇺🇸 +1</option>
+                  <option value="CA">🇨🇦 +1</option>
+                </select>
+                <Input id="parentPhone" value={f.parentPhone} onChange={(e) => update('parentPhone', e.target.value)} placeholder="81234567890" />
+              </div>
             </Field>
             <Field label="Email orang tua" htmlFor="parentEmail">
               <Input id="parentEmail" type="email" value={f.parentEmail} onChange={(e) => update('parentEmail', e.target.value)} />

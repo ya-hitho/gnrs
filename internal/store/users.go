@@ -27,7 +27,7 @@ func NewUsers(db *sql.DB) *Users {
 // Column list used by every SELECT against users. Order matches scanUserRow.
 const userColumns = `id, email, username, password, name, role, active,
 	nickname, date_of_birth, gender, no_hp, alamat, kelompok,
-	level, parent_name, parent_phone, parent_email,
+	level, parent_name, parent_title, parent_phone, parent_phone_region, parent_email,
 	desa, daerah, notes,
 	joined_at, left_at, leave_reason, membership_status,
 	photo_path, timezone,
@@ -75,10 +75,12 @@ type UserCreateInput struct {
 	Kelompok    *string
 
 	// Murid
-	Level       *model.StudentLevel
-	ParentName  *string
-	ParentPhone *string
-	ParentEmail *string
+	Level             *model.StudentLevel
+	ParentName        *string
+	ParentTitle       *string
+	ParentPhone       *string
+	ParentPhoneRegion *string
+	ParentEmail       *string
 
 	// Guru
 	Desa   *string
@@ -130,7 +132,7 @@ func (u *Users) createWithHash(ctx context.Context, in UserCreateInput, hash str
 		`INSERT INTO users (
 		   id, email, username, password, name, role, active,
 		   nickname, date_of_birth, gender, no_hp, alamat, kelompok,
-		   level, parent_name, parent_phone, parent_email,
+		   level, parent_name, parent_title, parent_phone, parent_phone_region, parent_email,
 		   desa, daerah, notes,
 		   joined_at, left_at, leave_reason, membership_status,
 		   user_code, tempat_lahir, pendidikan, pekerjaan,
@@ -138,7 +140,7 @@ func (u *Users) createWithHash(ctx context.Context, in UserCreateInput, hash str
 		   created_at, updated_at
 		 ) VALUES (?, ?, ?, ?, ?, ?, 1,
 		           ?, ?, ?, ?, ?, ?,
-		           ?, ?, ?, ?,
+		           ?, ?, ?, ?, ?, ?,
 		           ?, ?, ?,
 		           ?, ?, ?, ?,
 		           ?, ?, ?, ?,
@@ -146,7 +148,7 @@ func (u *Users) createWithHash(ctx context.Context, in UserCreateInput, hash str
 		           ?, ?)`,
 		id, in.Email, in.Username, hash, in.Name, string(in.Role),
 		in.Nickname, nullableDate(in.DateOfBirth), in.Gender, in.NoHP, in.Alamat, in.Kelompok,
-		nullableLevel(in.Level), in.ParentName, in.ParentPhone, in.ParentEmail,
+		nullableLevel(in.Level), in.ParentName, in.ParentTitle, in.ParentPhone, in.ParentPhoneRegion, in.ParentEmail,
 		in.Desa, in.Daerah, in.Notes,
 		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason, string(ms),
 		in.UserCode, in.TempatLahir, in.Pendidikan, in.Pekerjaan,
@@ -177,9 +179,11 @@ type UserUpdateInput struct {
 	Kelompok         *string
 	Level            *model.StudentLevel
 	ClearLevel       bool
-	ParentName       *string
-	ParentPhone      *string
-	ParentEmail      *string
+	ParentName        *string
+	ParentTitle       *string
+	ParentPhone       *string
+	ParentPhoneRegion *string
+	ParentEmail       *string
 	Desa             *string
 	Daerah           *string
 	Notes            *string
@@ -267,7 +271,9 @@ func (u *Users) Update(ctx context.Context, id string, in UserUpdateInput) (*mod
 		args = append(args, string(*in.Level))
 	}
 	addStr("parent_name", in.ParentName)
+	addStr("parent_title", in.ParentTitle)
 	addStr("parent_phone", in.ParentPhone)
+	addStr("parent_phone_region", in.ParentPhoneRegion)
 	addStr("parent_email", in.ParentEmail)
 	addStr("desa", in.Desa)
 	addStr("daerah", in.Daerah)
@@ -503,7 +509,7 @@ func readUserRow(s scanner) (*model.User, error) {
 	if err := s.Scan(
 		&u.ID, &u.Email, &u.Username, &u.Password, &u.Name, &role, &active,
 		&u.Nickname, &dob, &u.Gender, &u.NoHP, &u.Alamat, &u.Kelompok,
-		&level, &u.ParentName, &u.ParentPhone, &u.ParentEmail,
+		&level, &u.ParentName, &u.ParentTitle, &u.ParentPhone, &u.ParentPhoneRegion, &u.ParentEmail,
 		&u.Desa, &u.Daerah, &u.Notes,
 		&joinedAt, &leftAt, &u.LeaveReason, &membershipStatus,
 		&u.PhotoPath, &u.Timezone,

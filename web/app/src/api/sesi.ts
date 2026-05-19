@@ -3,6 +3,13 @@ import { apiFetch } from './client'
 export type LibraryKind = 'kurikulum' | 'quran' | 'hadits' | 'tilawati' | 'doa'
 export type LibraryAspect = 'reciting' | 'memorizing' | 'review' | 'manqul'
 
+export type SesiLibraryItem = {
+  id?: string
+  libraryKind: Exclude<LibraryKind, 'kurikulum'>
+  libraryAspect?: LibraryAspect | null
+  libraryRef: string
+}
+
 export type Sesi = {
   id: string
   tanggal: string
@@ -18,8 +25,11 @@ export type Sesi = {
   libraryKind?: LibraryKind | null
   libraryAspect?: LibraryAspect | null
   libraryRef?: string | null
+  libraryItems: SesiLibraryItem[]
   startedAt?: string | null
   endedAt?: string | null
+  liveMateriId?: string | null
+  liveDisplayMode?: 'full' | 'title' | 'hidden' | null
   createdBy?: string | null
   createdAt: string
   updatedAt: string
@@ -39,6 +49,7 @@ export type SesiInput = {
   libraryKind?: LibraryKind | null
   libraryAspect?: LibraryAspect | null
   libraryRef?: string | null
+  libraryItems?: SesiLibraryItem[]
 }
 
 export type SesiListParams = {
@@ -82,4 +93,16 @@ export function startSesi(id: string) {
 
 export function endSesi(id: string) {
   return apiFetch<Sesi>(`/api/sesi/${encodeURIComponent(id)}/end`, { method: 'POST' })
+}
+
+export type SesiLiveInput = {
+  liveMateriId?: string | null
+  liveDisplayMode?: 'full' | 'title' | 'hidden' | null
+}
+
+export function setSesiLive(id: string, input: SesiLiveInput) {
+  return apiFetch<Sesi>(`/api/sesi/${encodeURIComponent(id)}/live`, {
+    method: 'PATCH',
+    body: input,
+  })
 }

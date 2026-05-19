@@ -27,11 +27,24 @@ type Sesi struct {
 	LibraryKind   *string  `json:"libraryKind,omitempty"`
 	LibraryAspect *string  `json:"libraryAspect,omitempty"`
 	LibraryRef    *string  `json:"libraryRef,omitempty"`
+	LibraryItems  []SesiLibraryItem `json:"libraryItems"`
 	StartedAt     *string  `json:"startedAt,omitempty"`
 	EndedAt       *string  `json:"endedAt,omitempty"`
+	LiveMateriID    *string `json:"liveMateriId,omitempty"`
+	LiveDisplayMode *string `json:"liveDisplayMode,omitempty"`
 	CreatedBy     *string  `json:"createdBy,omitempty"`
 	CreatedAt     string   `json:"createdAt"`
 	UpdatedAt     string   `json:"updatedAt"`
+}
+
+// SesiLibraryItem is one non-kurikulum reference attached to a sesi.
+// `Kind` is one of quran/hadits/tilawati/doa. Aspect/Ref semantics match
+// the single-shot Sesi.LibraryKind columns.
+type SesiLibraryItem struct {
+	ID            string  `json:"id"`
+	Kind          string  `json:"libraryKind"`
+	LibraryAspect *string `json:"libraryAspect,omitempty"`
+	LibraryRef    string  `json:"libraryRef"`
 }
 
 type SesiInput struct {
@@ -48,6 +61,7 @@ type SesiInput struct {
 	LibraryKind   *string
 	LibraryAspect *string
 	LibraryRef    *string
+	LibraryItems  []SesiLibraryItem
 }
 
 type SesiListParams struct {
@@ -73,7 +87,8 @@ func (s *SesiStore) AttachRencana(r *RencanaStore) { s.rencana = r }
 
 const sesiCols = `id, tanggal, mulai, selesai, topik, catatan, tingkat,
 	materi_ajar_id, guru_id, kelas_id, library_kind, library_aspect, library_ref,
-	started_at, ended_at, created_by, created_at, updated_at`
+	started_at, ended_at, live_materi_id, live_display_mode,
+	created_by, created_at, updated_at`
 
 // loadMateriIDs fills MateriAjarIDs on every sesi in the slice. Uses a
 // single IN() query to avoid N+1.
@@ -107,6 +122,74 @@ func (s *SesiStore) loadMateriIDs(ctx context.Context, list []Sesi) error {
 		}
 	}
 	return rows.Err()
+}
+
+// loadLibraryItems fills LibraryItems on every sesi in the slice.
+func (s *SesiStore) loadLibraryItems(ctx context.Context, list []Sesi) error {
+	if len(list) == 0 {
+		return nil
+	}
+	ph := strings.Repeat("?,", len(list))
+	ph = ph[:len(ph)-1]
+	args := make([]any, 0, len(list))
+	idx := make(map[string]int, len(list))
+	for i, v := range list {
+		args = append(args, v.ID)
+		idx[v.ID] = i
+		list[i].LibraryItems = []SesiLibraryItem{}
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, sesi_id, library_kind, library_aspect, library_ref
+		 FROM sesi_library WHERE sesi_id IN (`+ph+`)
+		 ORDER BY position ASC, created_at ASC`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sid string
+		var it SesiLibraryItem
+		if err := rows.Scan(&it.ID, &sid, &it.Kind, &it.LibraryAspect, &it.LibraryRef); err != nil {
+			return err
+		}
+		if i, ok := idx[sid]; ok {
+			list[i].LibraryItems = append(list[i].LibraryItems, it)
+		}
+	}
+	return rows.Err()
+}
+
+// writeLibraryJoin replaces sesi_library rows for one sesi atomically. Each
+// item gets an explicit position (input order) for stable ordering on read.
+func writeLibraryJoin(ctx context.Context, tx *sql.Tx, sesiID string, items []SesiLibraryItem) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM sesi_library WHERE sesi_id = ?`, sesiID); err != nil {
+		return err
+	}
+	pos := 0
+	for _, it := range items {
+		kind := strings.TrimSpace(it.Kind)
+		ref := strings.TrimSpace(it.LibraryRef)
+		if kind == "" || ref == "" || kind == "kurikulum" {
+			continue
+		}
+		id := ulid.Make().String()
+		var aspect *string
+		if it.LibraryAspect != nil {
+			a := strings.TrimSpace(*it.LibraryAspect)
+			if a != "" {
+				aspect = &a
+			}
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO sesi_library (id, sesi_id, library_kind, library_aspect, library_ref, position)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			id, sesiID, kind, aspect, ref, pos,
+		); err != nil {
+			return err
+		}
+		pos++
+	}
+	return nil
 }
 
 // writeMateriJoin replaces sesi_materi rows for one sesi atomically. The
@@ -178,14 +261,36 @@ func (s *SesiStore) syncSesiToRencana(ctx context.Context, sesi *Sesi) {
 	if len(ids) > 0 {
 		_ = s.rencana.AddItems(ctx, rb.ID, ids)
 	}
-	// Add library reference if non-kurikulum.
-	if sesi.LibraryKind != nil && *sesi.LibraryKind != "" && *sesi.LibraryKind != "kurikulum" &&
+	// Add library refs — every entry in LibraryItems plus the legacy single
+	// columns if still set (Get fills LibraryItems on read, so when only the
+	// legacy columns are populated they show up as a one-element slice via
+	// mergedLibraryItems when nothing else exists; otherwise iterate.
+	seen := map[string]bool{}
+	addLib := func(kind, aspect, ref string) {
+		if kind == "" || kind == "kurikulum" || ref == "" {
+			return
+		}
+		key := kind + "|" + aspect + "|" + ref
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		_ = s.rencana.AddLibraryItem(ctx, rb.ID, kind, aspect, ref)
+	}
+	for _, it := range sesi.LibraryItems {
+		aspect := ""
+		if it.LibraryAspect != nil {
+			aspect = *it.LibraryAspect
+		}
+		addLib(it.Kind, aspect, it.LibraryRef)
+	}
+	if sesi.LibraryKind != nil && *sesi.LibraryKind != "" &&
 		sesi.LibraryRef != nil && *sesi.LibraryRef != "" {
 		aspect := ""
 		if sesi.LibraryAspect != nil {
 			aspect = *sesi.LibraryAspect
 		}
-		_ = s.rencana.AddLibraryItem(ctx, rb.ID, *sesi.LibraryKind, aspect, *sesi.LibraryRef)
+		addLib(*sesi.LibraryKind, aspect, *sesi.LibraryRef)
 	}
 }
 
@@ -275,6 +380,9 @@ func (s *SesiStore) List(ctx context.Context, p SesiListParams) ([]Sesi, error) 
 	if err := s.loadMateriIDs(ctx, out); err != nil {
 		return nil, err
 	}
+	if err := s.loadLibraryItems(ctx, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -289,6 +397,9 @@ func (s *SesiStore) Get(ctx context.Context, id string) (*Sesi, error) {
 	}
 	one := []Sesi{*v}
 	if err := s.loadMateriIDs(ctx, one); err != nil {
+		return nil, err
+	}
+	if err := s.loadLibraryItems(ctx, one); err != nil {
 		return nil, err
 	}
 	return &one[0], nil
@@ -310,8 +421,9 @@ func (s *SesiStore) Create(ctx context.Context, in SesiInput, createdBy string) 
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO sesi (id, tanggal, mulai, selesai, topik, catatan, tingkat,
 		   materi_ajar_id, guru_id, kelas_id, library_kind, library_aspect, library_ref,
-		   started_at, ended_at, created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
+		   started_at, ended_at, live_materi_id, live_display_mode,
+		   created_by, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?, ?)`,
 		id, in.Tanggal, in.Mulai, in.Selesai, in.Topik, in.Catatan, in.Tingkat,
 		primary, in.GuruID, in.KelasID,
 		in.LibraryKind, in.LibraryAspect, in.LibraryRef,
@@ -320,6 +432,9 @@ func (s *SesiStore) Create(ctx context.Context, in SesiInput, createdBy string) 
 		return nil, err
 	}
 	if err := writeMateriJoin(ctx, tx, id, in.MateriAjarIDs, primary); err != nil {
+		return nil, err
+	}
+	if err := writeLibraryJoin(ctx, tx, id, mergedLibraryItems(in)); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -359,6 +474,9 @@ func (s *SesiStore) Update(ctx context.Context, id string, in SesiInput) (*Sesi,
 	if err := writeMateriJoin(ctx, tx, id, in.MateriAjarIDs, primary); err != nil {
 		return nil, err
 	}
+	if err := writeLibraryJoin(ctx, tx, id, mergedLibraryItems(in)); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -367,6 +485,32 @@ func (s *SesiStore) Update(ctx context.Context, id string, in SesiInput) (*Sesi,
 		s.syncSesiToRencana(ctx, v)
 	}
 	return v, err
+}
+
+// mergedLibraryItems returns the canonical list of library items to persist,
+// combining the explicit LibraryItems slice with the legacy single-shot
+// LibraryKind/LibraryRef fields if no explicit slice was sent. De-dupes by
+// (kind, aspect, ref).
+func mergedLibraryItems(in SesiInput) []SesiLibraryItem {
+	if len(in.LibraryItems) > 0 {
+		return in.LibraryItems
+	}
+	if in.LibraryKind == nil || *in.LibraryKind == "" || *in.LibraryKind == "kurikulum" {
+		return nil
+	}
+	if in.LibraryRef == nil || *in.LibraryRef == "" {
+		return nil
+	}
+	var aspect *string
+	if in.LibraryAspect != nil && *in.LibraryAspect != "" {
+		a := *in.LibraryAspect
+		aspect = &a
+	}
+	return []SesiLibraryItem{{
+		Kind:          *in.LibraryKind,
+		LibraryAspect: aspect,
+		LibraryRef:    *in.LibraryRef,
+	}}
 }
 
 func (s *SesiStore) Delete(ctx context.Context, id string) error {
@@ -404,8 +548,50 @@ func (s *SesiStore) SetStarted(ctx context.Context, id string) (*Sesi, error) {
 func (s *SesiStore) SetEnded(ctx context.Context, id string) (*Sesi, error) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE sesi SET ended_at = COALESCE(ended_at, ?), updated_at = ? WHERE id = ?`,
+		`UPDATE sesi SET ended_at = COALESCE(ended_at, ?),
+		   live_materi_id = NULL, live_display_mode = NULL,
+		   updated_at = ? WHERE id = ?`,
 		now, now, id,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil, ErrNotFound
+	}
+	return s.Get(ctx, id)
+}
+
+// SetLive updates which materi is currently being shown on the live stage
+// and the display mode. Pointers are sparse — nil means "leave unchanged".
+// Pass empty-string pointers to clear a column.
+func (s *SesiStore) SetLive(ctx context.Context, id string, materiID, displayMode *string) (*Sesi, error) {
+	sets := []string{}
+	args := []any{}
+	if materiID != nil {
+		sets = append(sets, "live_materi_id = ?")
+		if *materiID == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *materiID)
+		}
+	}
+	if displayMode != nil {
+		sets = append(sets, "live_display_mode = ?")
+		if *displayMode == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *displayMode)
+		}
+	}
+	if len(sets) == 0 {
+		return s.Get(ctx, id)
+	}
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	sets = append(sets, "updated_at = ?")
+	args = append(args, now, id)
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE sesi SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...,
 	)
 	if err != nil {
 		return nil, err
@@ -422,7 +608,9 @@ func scanSesi(s scanner) (*Sesi, error) {
 		&v.ID, &v.Tanggal, &v.Mulai, &v.Selesai, &v.Topik, &v.Catatan, &v.Tingkat,
 		&v.MateriAjarID, &v.GuruID, &v.KelasID,
 		&v.LibraryKind, &v.LibraryAspect, &v.LibraryRef,
-		&v.StartedAt, &v.EndedAt, &v.CreatedBy,
+		&v.StartedAt, &v.EndedAt,
+		&v.LiveMateriID, &v.LiveDisplayMode,
+		&v.CreatedBy,
 		&v.CreatedAt, &v.UpdatedAt,
 	); err != nil {
 		return nil, err

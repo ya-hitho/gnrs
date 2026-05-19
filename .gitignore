@@ -10,6 +10,14 @@ bin/*.exe
 *.test
 *.out
 
+# Compiled one-off CLI tools (rebuild from ./cmd)
+/import-historical
+/import-historical.exe
+/import-historical-linux
+/backfill-pencapaian
+/backfill-pencapaian.exe
+/backfill-pencapaian-linux
+
 # Frontend
 web/app/node_modules/
 web/app/dist/

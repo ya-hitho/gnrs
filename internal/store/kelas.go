@@ -322,6 +322,144 @@ func (s *KelasStore) RemoveAnggota(ctx context.Context, kelasID, muridID string)
 	return err
 }
 
+// --- Guru anggota (kelas_guru) ------------------------------------------
+
+type KelasGuruAnggota struct {
+	KelasID   string `json:"kelasId"`
+	GuruID    string `json:"guruUserId"`
+	GuruName  string `json:"guruName"`
+	IsPrimary bool   `json:"isPrimary"`
+	CreatedAt string `json:"createdAt"`
+}
+
+func (s *KelasStore) ListGuruAnggota(ctx context.Context, kelasID string) ([]KelasGuruAnggota, error) {
+	var primary sql.NullString
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT guru_user_id FROM kelas WHERE id = ?`, kelasID).Scan(&primary); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT kg.kelas_id, kg.guru_user_id, u.name, kg.created_at
+		 FROM kelas_guru kg
+		 JOIN users u ON u.id = kg.guru_user_id
+		 WHERE kg.kelas_id = ?
+		 ORDER BY u.name ASC`, kelasID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []KelasGuruAnggota{}
+	for rows.Next() {
+		var a KelasGuruAnggota
+		if err := rows.Scan(&a.KelasID, &a.GuruID, &a.GuruName, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		if primary.Valid && primary.String == a.GuruID {
+			a.IsPrimary = true
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (s *KelasStore) AddGuruAnggota(ctx context.Context, kelasID string, guruIDs []string) error {
+	if len(guruIDs) == 0 {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var primary sql.NullString
+	if err := tx.QueryRowContext(ctx,
+		`SELECT guru_user_id FROM kelas WHERE id = ?`, kelasID).Scan(&primary); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+
+	stmt, err := tx.PrepareContext(ctx,
+		`INSERT OR IGNORE INTO kelas_guru (kelas_id, guru_user_id) VALUES (?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	firstAdded := ""
+	for _, id := range guruIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, err := stmt.ExecContext(ctx, kelasID, id); err != nil {
+			return err
+		}
+		if firstAdded == "" {
+			firstAdded = id
+		}
+	}
+
+	if !primary.Valid && firstAdded != "" {
+		now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE kelas SET guru_user_id = ?, updated_at = ? WHERE id = ?`,
+			firstAdded, now, kelasID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *KelasStore) RemoveGuruAnggota(ctx context.Context, kelasID, guruID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM kelas_guru WHERE kelas_id = ? AND guru_user_id = ?`, kelasID, guruID); err != nil {
+		return err
+	}
+
+	var primary sql.NullString
+	if err := tx.QueryRowContext(ctx,
+		`SELECT guru_user_id FROM kelas WHERE id = ?`, kelasID).Scan(&primary); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if primary.Valid && primary.String == guruID {
+		var next sql.NullString
+		if err := tx.QueryRowContext(ctx,
+			`SELECT guru_user_id FROM kelas_guru WHERE kelas_id = ? ORDER BY created_at ASC LIMIT 1`,
+			kelasID).Scan(&next); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+		if next.Valid {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE kelas SET guru_user_id = ?, updated_at = ? WHERE id = ?`,
+				next.String, now, kelasID); err != nil {
+				return err
+			}
+		} else {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE kelas SET guru_user_id = NULL, updated_at = ? WHERE id = ?`,
+				now, kelasID); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
 func scanKelas(s scanner) (*Kelas, error) {
 	var k Kelas
 	if err := s.Scan(

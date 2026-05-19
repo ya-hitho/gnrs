@@ -177,3 +177,60 @@ func (h *Kelas) RemoveAnggota(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
+
+// ---- Guru anggota -------------------------------------------------------
+
+type guruAnggotaBody struct {
+	GuruIDs []string `json:"guruIds" validate:"required,min=1"`
+}
+
+func (h *Kelas) ListGuruAnggota(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	list, err := h.k.ListGuruAnggota(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "Kelas tidak ditemukan")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal mengambil daftar guru")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, list)
+}
+
+func (h *Kelas) AddGuruAnggota(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var b guruAnggotaBody
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "Format permintaan tidak valid")
+		return
+	}
+	if err := h.validator.Struct(b); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	if err := h.k.AddGuruAnggota(r.Context(), id, b.GuruIDs); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "Kelas tidak ditemukan")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menambah guru")
+		return
+	}
+	list, _ := h.k.ListGuruAnggota(r.Context(), id)
+	httpx.JSON(w, http.StatusOK, list)
+}
+
+func (h *Kelas) RemoveGuruAnggota(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	guruID := chi.URLParam(r, "guruId")
+	if err := h.k.RemoveGuruAnggota(r.Context(), id, guruID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "Kelas tidak ditemukan")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal menghapus guru")
+		return
+	}
+	httpx.JSON(w, http.StatusNoContent, nil)
+}

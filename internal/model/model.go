@@ -24,6 +24,7 @@ const (
 	AttendanceIzinMurid AttendanceStatus = "izin_murid"
 	AttendanceIzinGuru  AttendanceStatus = "izin_guru"
 	AttendanceByVN      AttendanceStatus = "by_vn"
+	AttendanceAlfa      AttendanceStatus = "alfa"
 )
 
 // Attendance — one teaching encounter (kehadiran). teacher_id / student_id
@@ -103,9 +104,11 @@ type User struct {
 
 	// Murid-only
 	Level       *StudentLevel `json:"level,omitempty"`
-	ParentName  *string       `json:"parentName,omitempty"`
-	ParentPhone *string       `json:"parentPhone,omitempty"`
-	ParentEmail *string       `json:"parentEmail,omitempty"`
+	ParentName        *string       `json:"parentName,omitempty"`
+	ParentTitle       *string       `json:"parentTitle,omitempty"`
+	ParentPhone       *string       `json:"parentPhone,omitempty"`
+	ParentPhoneRegion *string       `json:"parentPhoneRegion,omitempty"`
+	ParentEmail       *string       `json:"parentEmail,omitempty"`
 
 	// Guru-only
 	Desa   *string `json:"desa,omitempty"`
@@ -168,10 +171,12 @@ type Student struct {
 	LeftAt      *time.Time    `json:"leftAt,omitempty"`
 	LeaveReason *string       `json:"leaveReason,omitempty"`
 	Status      StudentStatus `json:"status"`
-	ParentName  *string       `json:"parentName,omitempty"`
-	ParentPhone *string       `json:"parentPhone,omitempty"`
-	ParentEmail *string       `json:"parentEmail,omitempty"`
-	PhotoURL    *string       `json:"photoUrl,omitempty"`
+	ParentName        *string       `json:"parentName,omitempty"`
+	ParentTitle       *string       `json:"parentTitle,omitempty"`
+	ParentPhone       *string       `json:"parentPhone,omitempty"`
+	ParentPhoneRegion *string       `json:"parentPhoneRegion,omitempty"`
+	ParentEmail       *string       `json:"parentEmail,omitempty"`
+	PhotoURL          *string       `json:"photoUrl,omitempty"`
 	CreatedAt   time.Time     `json:"createdAt"`
 	UpdatedAt   time.Time     `json:"updatedAt"`
 }

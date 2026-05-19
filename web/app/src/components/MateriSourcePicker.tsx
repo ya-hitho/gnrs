@@ -6,7 +6,7 @@ import { listMateriAjar, listTingkat, type MateriAjar } from '@/api/kurikulum'
 import { listQuranSurahs } from '@/api/quran'
 import { listKitab, type HaditsKitab } from '@/api/hadits'
 import { listDoa } from '@/api/doa'
-import type { LibraryAspect, LibraryKind } from '@/api/sesi'
+import type { LibraryAspect, LibraryKind, SesiLibraryItem } from '@/api/sesi'
 import { Button } from '@/components/Button'
 import { Dialog } from '@/components/Dialog'
 import { Field } from '@/components/Field'
@@ -28,6 +28,10 @@ export type MateriSourceValue = {
   libraryRef: string | null
   /** Used by kurikulum kind only — list of picked MateriAjar row ids. */
   materiAjarIds: string[]
+  /** Accumulated non-kurikulum picks across multiple add actions. The single
+   *  libraryKind/libraryAspect/libraryRef fields remain as the user's draft;
+   *  pressing "Tambah ke daftar" pushes the draft into this list. */
+  libraryItems: SesiLibraryItem[]
   /** Per-kind selection scratch space — preserved so changing aspect doesn't
    *  blow away the user's drilldown. */
   kurikulum: {
@@ -91,6 +95,7 @@ export function emptyMateriSourceValue(defaultTingkat?: string): MateriSourceVal
     libraryAspect: null,
     libraryRef: null,
     materiAjarIds: [],
+    libraryItems: [],
     kurikulum: {
       tingkat: defaultTingkat ?? '',
     },
@@ -106,6 +111,7 @@ export function MateriSourcePicker({
   onChange,
   fixedTingkat,
   hideKinds,
+  multipleLibrary,
 }: {
   value: MateriSourceValue
   onChange: (v: MateriSourceValue) => void
@@ -117,6 +123,11 @@ export function MateriSourcePicker({
    *  hides the kurikulum tile, since kurikulum has its own "+ Kurikulum"
    *  button). */
   hideKinds?: LibraryKind[]
+  /** When true, enables the multi-library workflow: a chip list of accumulated
+   *  picks plus a "Tambah ke daftar" button for the non-kurikulum kinds.
+   *  Callers that need single-shot pick semantics (legacy library-ref add
+   *  dialogs) leave this off. */
+  multipleLibrary?: boolean
 }) {
   const set = (patch: Partial<MateriSourceValue>) => onChange({ ...value, ...patch })
 
@@ -131,6 +142,35 @@ export function MateriSourcePicker({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fixedTingkat])
+
+  const isKurikulum = value.libraryKind === 'kurikulum'
+  const canAddCurrent = !isKurikulum && Boolean(value.libraryRef)
+
+  const addCurrent = () => {
+    if (!canAddCurrent || isKurikulum) return
+    const item: SesiLibraryItem = {
+      libraryKind: value.libraryKind as Exclude<LibraryKind, 'kurikulum'>,
+      libraryAspect: value.libraryAspect,
+      libraryRef: value.libraryRef!,
+    }
+    const patch: Partial<MateriSourceValue> = {
+      libraryItems: [...value.libraryItems, item],
+      libraryRef: null,
+    }
+    if (value.libraryKind === 'quran') {
+      patch.quran = { surah: '', ayatFrom: '', ayatTo: '' }
+    } else if (value.libraryKind === 'hadits') {
+      patch.hadits = { kitabSlug: '', nomorFrom: '', nomorTo: '' }
+    } else if (value.libraryKind === 'tilawati') {
+      patch.tilawati = { jilid: '', pageFrom: '', pageTo: '' }
+    } else if (value.libraryKind === 'doa') {
+      patch.doa = { doaId: '' }
+    }
+    set(patch)
+  }
+
+  const removeItem = (idx: number) =>
+    set({ libraryItems: value.libraryItems.filter((_, i) => i !== idx) })
 
   return (
     <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50/50 p-3">
@@ -150,7 +190,6 @@ export function MateriSourcePicker({
                     libraryKind: k,
                     libraryAspect: aspects[0] ?? null,
                     libraryRef: null,
-                    materiAjarIds: [],
                   })
                 }}
               />
@@ -158,11 +197,45 @@ export function MateriSourcePicker({
         </div>
       </div>
 
-      {value.libraryKind === 'kurikulum' ? (
+      {multipleLibrary && value.libraryItems.length > 0 ? (
+        <section>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Daftar materi library ({value.libraryItems.length})
+          </label>
+          <ul className="space-y-1">
+            {value.libraryItems.map((it, i) => (
+              <li
+                key={`${it.libraryKind}-${it.libraryRef}-${i}`}
+                className="flex items-start gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs"
+              >
+                <span className="mt-0.5 w-5 text-right text-slate-400">{i + 1}.</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase text-slate-500">
+                    {KIND_LABEL[it.libraryKind]}
+                    {it.libraryAspect ? ` · ${ASPECT_LABEL[it.libraryAspect]}` : ''}
+                  </div>
+                  <div className="text-sm font-medium text-slate-800">{it.libraryRef}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeItem(i)}
+                  className="rounded p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                  aria-label="Hapus materi"
+                  title="Hapus dari daftar"
+                >
+                  <X size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {isKurikulum ? (
         <KurikulumPicker value={value} set={set} fixedTingkat={fixedTingkat} />
       ) : null}
 
-      {value.libraryKind !== 'kurikulum' ? (
+      {!isKurikulum ? (
         <Field label="Aspek" htmlFor="src-aspect">
           <div className="flex flex-wrap gap-2">
             {ASPECTS_BY_KIND[value.libraryKind].map((a) => (
@@ -188,6 +261,22 @@ export function MateriSourcePicker({
       {value.libraryKind === 'hadits' ? <HaditsPicker value={value} set={set} /> : null}
       {value.libraryKind === 'tilawati' ? <TilawatiPicker value={value} set={set} /> : null}
       {value.libraryKind === 'doa' ? <DoaPicker value={value} set={set} /> : null}
+
+      {multipleLibrary && !isKurikulum ? (
+        <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
+          <p className="text-[11px] text-slate-500">
+            Setel pilihan di atas lalu klik tombol untuk menambahkan ke daftar materi sesi.
+          </p>
+          <button
+            type="button"
+            onClick={addCurrent}
+            disabled={!canAddCurrent}
+            className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Plus size={14} /> Tambah ke daftar
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -355,14 +444,13 @@ function KurikulumPicker({
         </ul>
       ) : null}
 
-      {/* "+ Tambah materi" — opens the hierarchical multi-select modal. */}
       <button
         type="button"
         onClick={() => setPickerOpen(true)}
         disabled={!activeTingkat}
         className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
       >
-        <Plus size={14} /> Tambah materi
+        <Plus size={14} /> Buka kurikulum
       </button>
 
       {pickerOpen ? (
@@ -370,7 +458,10 @@ function KurikulumPicker({
           tingkat={activeTingkat}
           picked={new Set(value.materiAjarIds)}
           onCommit={(ids) => {
-            set({ materiAjarIds: ids })
+            const merged = [...value.materiAjarIds]
+            const have = new Set(merged)
+            for (const id of ids) if (!have.has(id)) merged.push(id)
+            set({ materiAjarIds: merged })
             setPickerOpen(false)
           }}
           onClose={() => setPickerOpen(false)}
@@ -394,17 +485,42 @@ export function KurikulumMultiPickerDialog({
   onCommit: (ids: string[]) => void
   onClose: () => void
 }) {
-  const { data: materi = [], isPending } = useQuery({
+  const { data: rawMateri = [], isPending } = useQuery({
     queryKey: ['materi-ajar', { tingkat }],
     queryFn: () => listMateriAjar({ tingkat: tingkat || undefined }),
     enabled: Boolean(tingkat),
     staleTime: 60_000,
   })
 
-  const [draft, setDraft] = useState<Set<string>>(() => new Set(picked))
+  // Hide materi that are already on the picker's chip list — dialog is a
+  // "tambah ke daftar" flow, not an edit flow. Removal happens via the chip
+  // X buttons in the parent picker.
+  const materi = useMemo(() => rawMateri.filter((m) => !picked.has(m.id)), [rawMateri, picked])
+
+  const [draft, setDraft] = useState<Set<string>>(() => new Set())
   const [openTemas, setOpenTemas] = useState<Set<string>>(new Set())
   const [openSubs, setOpenSubs] = useState<Set<string>>(new Set())
   const [openKels, setOpenKels] = useState<Set<string>>(new Set())
+
+  // Auto-expand temas that contain already-picked items, plus the first tema
+  // when nothing is picked yet — improves multi-select discoverability.
+  useEffect(() => {
+    if (materi.length === 0) return
+    const tWithPicks = new Set<string>()
+    for (const m of materi) {
+      if (draft.has(m.id)) {
+        const key = (m.tema || '').toUpperCase() || '(TANPA TEMA)'
+        tWithPicks.add(key)
+      }
+    }
+    setOpenTemas((cur) => {
+      if (cur.size > 0) return cur
+      if (tWithPicks.size > 0) return tWithPicks
+      const first = (materi[0].tema || '').toUpperCase() || '(TANPA TEMA)'
+      return new Set([first])
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [materi])
 
   const grouped = useMemo(() => {
     const byTema: Record<string, MateriAjar[]> = {}
@@ -461,25 +577,50 @@ export function KurikulumMultiPickerDialog({
     setter(new Set(s.has(key) ? [...s].filter((x) => x !== key) : [...s, key]))
 
   return (
-    <Dialog title="Pilih materi kurikulum" onClose={onClose} size="lg">
+    <Dialog title="Buka Kurikulum — pilih materi" onClose={onClose} size="lg">
       <div className="space-y-3">
+        <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+          Centang materi yang ingin ditambahkan ke daftar materi sesi. Bisa pilih lebih dari satu, lintas tema.
+        </div>
         <div className="text-xs text-slate-500">
           Tingkat <span className="font-semibold text-slate-700">{tingkat || '—'}</span>
           {' · '}
-          <span className="font-semibold text-slate-700">{draft.size}</span> dipilih
+          <span className="font-semibold text-slate-700">{draft.size}</span> akan ditambahkan
+          {picked.size > 0 ? (
+            <>
+              {' · '}
+              <span className="text-slate-500">{picked.size} sudah di daftar</span>
+            </>
+          ) : null}
         </div>
 
         {isPending ? (
           <p className="px-4 py-6 text-center text-sm text-slate-500">Memuat materi…</p>
         ) : grouped.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-slate-500">
-            Tidak ada materi pada tingkat ini.
+            {picked.size > 0
+              ? 'Semua materi pada tingkat ini sudah ada di daftar.'
+              : 'Tidak ada materi pada tingkat ini.'}
           </p>
         ) : (
           <div className="max-h-[55vh] overflow-y-auto rounded-md border border-slate-200 bg-white">
             {grouped.map((g) => {
               const tCollapsed = !openTemas.has(g.tema)
               const color = TEMA_COLOR[g.tema] || '#475569'
+              let temaPicked = 0
+              let temaTotal = 0
+              for (const sub of g.subs) {
+                for (const kg of sub.kelompoks) {
+                  for (const m of kg.items) {
+                    temaTotal++
+                    if (draft.has(m.id)) temaPicked++
+                  }
+                }
+                for (const m of sub.flat) {
+                  temaTotal++
+                  if (draft.has(m.id)) temaPicked++
+                }
+              }
               return (
                 <div
                   key={g.tema}
@@ -493,7 +634,10 @@ export function KurikulumMultiPickerDialog({
                     style={{ color }}
                   >
                     {tCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                    {TEMA_LABEL[g.tema] || g.tema}
+                    <span className="flex-1">{TEMA_LABEL[g.tema] || g.tema}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                      {temaPicked > 0 ? `${temaPicked} / ${temaTotal}` : temaTotal}
+                    </span>
                   </button>
                   {!tCollapsed
                     ? g.subs.map((sub) => {
@@ -575,8 +719,12 @@ export function KurikulumMultiPickerDialog({
           <Button type="button" variant="secondary" onClick={onClose}>
             Batal
           </Button>
-          <Button type="button" onClick={() => onCommit([...draft])}>
-            Simpan ({draft.size})
+          <Button
+            type="button"
+            onClick={() => onCommit([...draft])}
+            disabled={draft.size === 0}
+          >
+            Tambah ke daftar ({draft.size})
           </Button>
         </div>
       </div>

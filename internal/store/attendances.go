@@ -272,7 +272,7 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 		}
 		statusMap[s] = n
 	}
-	for _, s := range []string{"hadir", "izin_murid", "izin_guru", "by_vn"} {
+	for _, s := range []string{"hadir", "izin_murid", "izin_guru", "by_vn", "alfa"} {
 		out.ByStatus = append(out.ByStatus, Bucket{Label: s, Count: statusMap[s]})
 	}
 	studentWhere := ""

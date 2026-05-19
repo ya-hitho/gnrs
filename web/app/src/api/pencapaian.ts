@@ -3,10 +3,16 @@ import type { MateriAjar } from './kurikulum'
 
 export type PencapaianStatus = 'belum' | 'proses' | 'tuntas'
 
+export type PencapaianLibraryKind = 'quran' | 'hadits' | 'tilawati' | 'doa'
+export type PencapaianLibraryAspect = 'reciting' | 'memorizing' | 'review' | 'manqul'
+
 export type Pencapaian = {
   id: string
   muridUserId: string
-  materiAjarId: string
+  materiAjarId?: string | null
+  libraryKind?: PencapaianLibraryKind | null
+  libraryAspect?: PencapaianLibraryAspect | null
+  libraryRef?: string | null
   status: PencapaianStatus
   nilaiAngka?: number | null
   nilaiHuruf?: string | null
@@ -41,12 +47,20 @@ export function listPencapaian(params: {
 
 export type PencapaianUpsertInput = {
   muridUserId: string
-  materiAjarId: string
+  materiAjarId?: string | null
+  libraryKind?: PencapaianLibraryKind | null
+  libraryAspect?: PencapaianLibraryAspect | null
+  libraryRef?: string | null
   status: PencapaianStatus
   nilaiAngka?: number | null
   nilaiHuruf?: string | null
   tanggal?: string | null
   catatan?: string | null
+}
+
+export function listLibraryPencapaian(muridUserId: string) {
+  const sp = new URLSearchParams({ muridUserId })
+  return apiFetch<Pencapaian[]>(`/api/pencapaian/library?${sp.toString()}`)
 }
 
 export function upsertPencapaian(input: PencapaianUpsertInput) {

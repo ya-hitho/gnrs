@@ -31,6 +31,14 @@ export type KelasAnggota = {
   createdAt: string
 }
 
+export type KelasGuruAnggota = {
+  kelasId: string
+  guruUserId: string
+  guruName: string
+  isPrimary: boolean
+  createdAt: string
+}
+
 export function listKelas(params: { tingkat?: string; tahun?: number; guruId?: string } = {}) {
   const sp = new URLSearchParams()
   if (params.tingkat) sp.set('tingkat', params.tingkat)
@@ -70,6 +78,24 @@ export function addAnggota(kelasId: string, muridIds: string[]) {
 export function removeAnggota(kelasId: string, muridId: string) {
   return apiFetch<void>(
     `/api/kelas/${encodeURIComponent(kelasId)}/anggota/${encodeURIComponent(muridId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export function listGuruAnggota(kelasId: string) {
+  return apiFetch<KelasGuruAnggota[]>(`/api/kelas/${encodeURIComponent(kelasId)}/guru`)
+}
+
+export function addGuruAnggota(kelasId: string, guruIds: string[]) {
+  return apiFetch<KelasGuruAnggota[]>(`/api/kelas/${encodeURIComponent(kelasId)}/guru`, {
+    method: 'POST',
+    body: { guruIds },
+  })
+}
+
+export function removeGuruAnggota(kelasId: string, guruId: string) {
+  return apiFetch<void>(
+    `/api/kelas/${encodeURIComponent(kelasId)}/guru/${encodeURIComponent(guruId)}`,
     { method: 'DELETE' },
   )
 }

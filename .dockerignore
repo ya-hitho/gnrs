@@ -2,6 +2,7 @@
 .gitignore
 .dockerignore
 README.md
+PODMAN.md
 RULES.md
 Makefile
 

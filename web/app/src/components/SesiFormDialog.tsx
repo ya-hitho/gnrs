@@ -5,7 +5,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Clock } from 'lucide-react'
 
-import { createSesi, updateSesi, type Sesi, type SesiInput } from '@/api/sesi'
+import {
+  createSesi,
+  updateSesi,
+  type Sesi,
+  type SesiInput,
+  type SesiLibraryItem,
+} from '@/api/sesi'
 import { listKelas } from '@/api/kelas'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/Button'
@@ -102,20 +108,29 @@ export function SesiFormDialog({
   const [source, setSource] = useState<MateriSourceValue>(() => {
     if (sesi) {
       const base = emptyMateriSourceValue(sesi.tingkat ?? defaults?.defaultTingkat)
-      // Best-effort rehydration from the saved row. Kurikulum drilldown can't
-      // be reconstructed from materiAjarId alone without a fetch — we just
-      // pin materiAjarId and let the user re-pick if they want to change.
-      if (sesi.libraryKind) {
-        base.libraryKind = sesi.libraryKind
-        base.libraryAspect = sesi.libraryAspect ?? null
-        base.libraryRef = sesi.libraryRef ?? null
-      } else if (sesi.materiAjarIds && sesi.materiAjarIds.length > 0) {
-        base.libraryKind = 'kurikulum'
+      if (sesi.materiAjarIds && sesi.materiAjarIds.length > 0) {
         base.materiAjarIds = sesi.materiAjarIds
       } else if (sesi.materiAjarId) {
-        base.libraryKind = 'kurikulum'
         base.materiAjarIds = [sesi.materiAjarId]
       }
+      // Saved library refs are read back from the new sesi_library join. We
+      // fall back to the legacy single columns when the join is empty.
+      if (sesi.libraryItems && sesi.libraryItems.length > 0) {
+        base.libraryItems = sesi.libraryItems
+      } else if (
+        sesi.libraryKind &&
+        sesi.libraryKind !== 'kurikulum' &&
+        sesi.libraryRef
+      ) {
+        base.libraryItems = [
+          {
+            libraryKind: sesi.libraryKind,
+            libraryAspect: sesi.libraryAspect ?? null,
+            libraryRef: sesi.libraryRef,
+          },
+        ]
+      }
+      base.libraryKind = 'kurikulum'
       return base
     }
     return emptyMateriSourceValue(defaults?.defaultTingkat)
@@ -159,7 +174,21 @@ export function SesiFormDialog({
 
   const onSubmit = (v: FormValues) => {
     const topik = v.topik.trim() || defaultTopik || 'Sesi'
-    const isKurikulum = source.libraryKind === 'kurikulum'
+    // Library items: the persisted list, plus the current draft if non-empty
+    // and not yet pushed to the list (so users can hit Save without first
+    // pressing "Tambah ke daftar"). De-dupes by (kind, aspect, ref).
+    const items: SesiLibraryItem[] = [...source.libraryItems]
+    if (source.libraryKind !== 'kurikulum' && source.libraryRef) {
+      const draft: SesiLibraryItem = {
+        libraryKind: source.libraryKind,
+        libraryAspect: source.libraryAspect,
+        libraryRef: source.libraryRef,
+      }
+      const key = (it: SesiLibraryItem) =>
+        `${it.libraryKind}|${it.libraryAspect ?? ''}|${it.libraryRef}`
+      const seen = new Set(items.map(key))
+      if (!seen.has(key(draft))) items.push(draft)
+    }
     const input: SesiInput = {
       tanggal: v.tanggal,
       mulai: mulai || null,
@@ -167,12 +196,13 @@ export function SesiFormDialog({
       topik,
       catatan: null,
       tingkat: autoTingkat || null,
-      materiAjarId: isKurikulum ? source.materiAjarIds[0] ?? null : null,
-      materiAjarIds: isKurikulum ? source.materiAjarIds : [],
+      materiAjarId: source.materiAjarIds[0] ?? null,
+      materiAjarIds: source.materiAjarIds,
       kelasId: kelasId || null,
-      libraryKind: source.libraryKind,
-      libraryAspect: source.libraryAspect,
-      libraryRef: isKurikulum ? null : source.libraryRef,
+      libraryKind: items.length > 0 ? items[0].libraryKind : 'kurikulum',
+      libraryAspect: items.length > 0 ? items[0].libraryAspect ?? null : null,
+      libraryRef: items.length > 0 ? items[0].libraryRef : null,
+      libraryItems: items,
     }
     if (mode === 'create') createMut.mutate(input)
     else updateMut.mutate(input)
@@ -290,7 +320,12 @@ export function SesiFormDialog({
           />
         ) : null}
 
-        <MateriSourcePicker value={source} onChange={setSource} fixedTingkat={autoTingkat} />
+        <MateriSourcePicker
+          value={source}
+          onChange={setSource}
+          fixedTingkat={autoTingkat}
+          multipleLibrary
+        />
 
         <div className="flex items-center justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>

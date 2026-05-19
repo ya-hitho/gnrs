@@ -114,8 +114,16 @@ export function StudentDetailPage() {
             <Row label="Status" value={statusLabel} />
             <Row label="Tanggal Keluar" value={s.leftAt?.slice(0, 10) ?? '—'} />
             <Row label="Keterangan Keluar" value={s.leaveReason ?? '—'} />
+            <Row label="Sebutan Orang Tua" value={s.parentTitle ?? '—'} />
             <Row label="Nama Orang Tua" value={s.parentName ?? '—'} />
-            <Row label="Telepon Orang Tua" value={s.parentPhone ?? '—'} />
+            <Row
+              label="WhatsApp Orang Tua"
+              value={
+                s.parentPhone
+                  ? `+${({ ID: '62', SG: '65', US: '1', CA: '1' } as any)[s.parentPhoneRegion ?? 'ID'] ?? '62'}${s.parentPhone.replace(/^0+/, '')}`
+                  : '—'
+              }
+            />
             <Row label="Email Orang Tua" value={s.parentEmail ?? '—'} className="sm:col-span-2" />
           </dl>
         )}

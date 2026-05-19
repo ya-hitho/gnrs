@@ -48,7 +48,9 @@ export type ManagedUser = {
   // Murid
   level?: StudentLevel
   parentName?: string
+  parentTitle?: string
   parentPhone?: string
+  parentPhoneRegion?: 'ID' | 'SG' | 'US' | 'CA'
   parentEmail?: string
 
   // Guru
@@ -99,7 +101,9 @@ export type UserCreateInput = {
   kelompok?: string
   level?: StudentLevel
   parentName?: string
+  parentTitle?: string
   parentPhone?: string
+  parentPhoneRegion?: 'ID' | 'SG' | 'US' | 'CA'
   parentEmail?: string
   desa?: string
   daerah?: string

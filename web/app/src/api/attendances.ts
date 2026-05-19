@@ -1,12 +1,13 @@
 import { apiFetch } from './client'
 
-export type AttendanceStatus = 'hadir' | 'izin_murid' | 'izin_guru' | 'by_vn'
+export type AttendanceStatus = 'hadir' | 'izin_murid' | 'izin_guru' | 'by_vn' | 'alfa'
 
 export const ATTENDANCE_STATUS_LABEL: Record<AttendanceStatus, string> = {
   hadir: 'Hadir',
   izin_murid: 'Izin (Murid)',
   izin_guru: 'Izin (Guru)',
   by_vn: 'Via Voice Note',
+  alfa: 'Alfa',
 }
 
 export type Attendance = {

@@ -18,11 +18,16 @@ const (
 	PencapaianTuntas PencapaianStatus = "tuntas"
 )
 
-// Pencapaian — one murid's mastery record for one materi_ajar.
+// Pencapaian — one murid's mastery record for one item, either a kurikulum
+// materi_ajar or a library ref (Quran/Hadits/Tilawati/Doa). Exactly one of
+// {MateriAjarID} or {LibraryKind+LibraryRef} is set per row.
 type Pencapaian struct {
 	ID            string  `json:"id"`
 	MuridUserID   string  `json:"muridUserId"`
-	MateriAjarID  string  `json:"materiAjarId"`
+	MateriAjarID  *string `json:"materiAjarId,omitempty"`
+	LibraryKind   *string `json:"libraryKind,omitempty"`
+	LibraryAspect *string `json:"libraryAspect,omitempty"`
+	LibraryRef    *string `json:"libraryRef,omitempty"`
 	Status        string  `json:"status"`
 	NilaiAngka    *int    `json:"nilaiAngka,omitempty"`
 	NilaiHuruf    *string `json:"nilaiHuruf,omitempty"`
@@ -34,20 +39,24 @@ type Pencapaian struct {
 }
 
 type PencapaianUpsertInput struct {
-	MuridUserID  string
-	MateriAjarID string
-	Status       string
-	NilaiAngka   *int
-	NilaiHuruf   *string
-	Tanggal      *string
-	Catatan      *string
+	MuridUserID   string
+	MateriAjarID  *string
+	LibraryKind   *string
+	LibraryAspect *string
+	LibraryRef    *string
+	Status        string
+	NilaiAngka    *int
+	NilaiHuruf    *string
+	Tanggal       *string
+	Catatan       *string
 }
 
 type PencapaianStore struct{ db *sql.DB }
 
 func NewPencapaian(db *sql.DB) *PencapaianStore { return &PencapaianStore{db: db} }
 
-const pencapaianCols = `id, murid_user_id, materi_ajar_id, status, nilai_angka,
+const pencapaianCols = `id, murid_user_id, materi_ajar_id, library_kind,
+	library_aspect, library_ref, status, nilai_angka,
 	nilai_huruf, tanggal, catatan, recorded_by, created_at, updated_at`
 
 type PencapaianListParams struct {
@@ -162,7 +171,10 @@ func (s *PencapaianStore) ListForMurid(ctx context.Context, p PencapaianListPara
 		if pID.Valid {
 			p.ID = pID.String
 			p.MuridUserID = pMurid.String
-			p.MateriAjarID = pMateri.String
+			if pMateri.Valid {
+				v := pMateri.String
+				p.MateriAjarID = &v
+			}
 			p.Status = pStatus.String
 			if pNilaiAngka.Valid {
 				v := int(pNilaiAngka.Int64)
@@ -193,53 +205,117 @@ func (s *PencapaianStore) ListForMurid(ctx context.Context, p PencapaianListPara
 	return out, rows.Err()
 }
 
-// Upsert creates or updates a pencapaian row keyed on (murid, materi).
+// Upsert creates or updates a pencapaian row. Keyed on (murid, materi_ajar_id)
+// for kurikulum entries, or (murid, library_kind, library_aspect, library_ref)
+// for library entries. Exactly one of the two key sets must be filled.
 func (s *PencapaianStore) Upsert(ctx context.Context, in PencapaianUpsertInput, recordedBy string) (*Pencapaian, error) {
 	if in.Status != string(PencapaianBelum) && in.Status != string(PencapaianProses) && in.Status != string(PencapaianTuntas) {
 		in.Status = string(PencapaianBelum)
 	}
+	isKurikulum := in.MateriAjarID != nil && *in.MateriAjarID != ""
+	isLibrary := in.LibraryKind != nil && *in.LibraryKind != "" &&
+		in.LibraryRef != nil && *in.LibraryRef != ""
+	if isKurikulum == isLibrary {
+		return nil, errors.New("pencapaian needs exactly one of materi_ajar_id or library_kind+library_ref")
+	}
+
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	var byPtr *string
 	if strings.TrimSpace(recordedBy) != "" {
 		byPtr = &recordedBy
 	}
-	// Try update first; if no row, insert.
+
+	if isKurikulum {
+		res, err := s.db.ExecContext(ctx,
+			`UPDATE pencapaian
+			    SET status = ?, nilai_angka = ?, nilai_huruf = ?, tanggal = ?, catatan = ?,
+			        recorded_by = COALESCE(?, recorded_by), updated_at = ?
+			  WHERE murid_user_id = ? AND materi_ajar_id = ?`,
+			in.Status, in.NilaiAngka, in.NilaiHuruf, in.Tanggal, in.Catatan,
+			byPtr, now, in.MuridUserID, *in.MateriAjarID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			id := ulid.Make().String()
+			if _, err := s.db.ExecContext(ctx,
+				`INSERT INTO pencapaian
+				   (id, murid_user_id, materi_ajar_id, status, nilai_angka, nilai_huruf,
+				    tanggal, catatan, recorded_by, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				id, in.MuridUserID, *in.MateriAjarID, in.Status,
+				in.NilaiAngka, in.NilaiHuruf, in.Tanggal, in.Catatan,
+				byPtr, now, now,
+			); err != nil {
+				return nil, err
+			}
+		}
+		return s.findKurikulum(ctx, in.MuridUserID, *in.MateriAjarID)
+	}
+
+	// Library entry — aspect is part of the key.
+	aspect := ""
+	if in.LibraryAspect != nil {
+		aspect = *in.LibraryAspect
+	}
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE pencapaian
-		 SET status = ?, nilai_angka = ?, nilai_huruf = ?, tanggal = ?, catatan = ?,
-		     recorded_by = ?, updated_at = ?
-		 WHERE murid_user_id = ? AND materi_ajar_id = ?`,
+		    SET status = ?, nilai_angka = ?, nilai_huruf = ?, tanggal = ?, catatan = ?,
+		        recorded_by = COALESCE(?, recorded_by), updated_at = ?
+		  WHERE murid_user_id = ? AND library_kind = ?
+		    AND COALESCE(library_aspect, '') = ? AND library_ref = ?`,
 		in.Status, in.NilaiAngka, in.NilaiHuruf, in.Tanggal, in.Catatan,
-		byPtr, now, in.MuridUserID, in.MateriAjarID,
+		byPtr, now, in.MuridUserID, *in.LibraryKind, aspect, *in.LibraryRef,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		id := ulid.Make().String()
+		var aspectPtr *string
+		if aspect != "" {
+			aspectPtr = &aspect
+		}
 		if _, err := s.db.ExecContext(ctx,
 			`INSERT INTO pencapaian
-			   (id, murid_user_id, materi_ajar_id, status, nilai_angka, nilai_huruf,
-			    tanggal, catatan, recorded_by, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, in.MuridUserID, in.MateriAjarID, in.Status,
-			in.NilaiAngka, in.NilaiHuruf, in.Tanggal, in.Catatan,
+			   (id, murid_user_id, library_kind, library_aspect, library_ref,
+			    status, nilai_angka, nilai_huruf, tanggal, catatan, recorded_by,
+			    created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, in.MuridUserID, *in.LibraryKind, aspectPtr, *in.LibraryRef,
+			in.Status, in.NilaiAngka, in.NilaiHuruf, in.Tanggal, in.Catatan,
 			byPtr, now, now,
 		); err != nil {
 			return nil, err
 		}
 	}
-	return s.findOne(ctx, in.MuridUserID, in.MateriAjarID)
+	return s.findLibrary(ctx, in.MuridUserID, *in.LibraryKind, aspect, *in.LibraryRef)
 }
 
-func (s *PencapaianStore) findOne(ctx context.Context, muridUserID, materiID string) (*Pencapaian, error) {
+func (s *PencapaianStore) findKurikulum(ctx context.Context, muridUserID, materiID string) (*Pencapaian, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT `+pencapaianCols+` FROM pencapaian
 		 WHERE murid_user_id = ? AND materi_ajar_id = ?`,
 		muridUserID, materiID,
 	)
+	return scanPencapaian(row)
+}
+
+func (s *PencapaianStore) findLibrary(ctx context.Context, muridUserID, kind, aspect, ref string) (*Pencapaian, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT `+pencapaianCols+` FROM pencapaian
+		 WHERE murid_user_id = ? AND library_kind = ?
+		   AND COALESCE(library_aspect, '') = ? AND library_ref = ?`,
+		muridUserID, kind, aspect, ref,
+	)
+	return scanPencapaian(row)
+}
+
+func scanPencapaian(row *sql.Row) (*Pencapaian, error) {
 	var p Pencapaian
-	if err := row.Scan(&p.ID, &p.MuridUserID, &p.MateriAjarID, &p.Status,
+	if err := row.Scan(&p.ID, &p.MuridUserID, &p.MateriAjarID, &p.LibraryKind,
+		&p.LibraryAspect, &p.LibraryRef, &p.Status,
 		&p.NilaiAngka, &p.NilaiHuruf, &p.Tanggal, &p.Catatan, &p.RecordedBy,
 		&p.CreatedAt, &p.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -248,6 +324,31 @@ func (s *PencapaianStore) findOne(ctx context.Context, muridUserID, materiID str
 		return nil, err
 	}
 	return &p, nil
+}
+
+// ListLibraryForMurid returns every library pencapaian row for one murid,
+// ordered by library_kind then library_ref so the frontend can group them.
+func (s *PencapaianStore) ListLibraryForMurid(ctx context.Context, muridUserID string) ([]Pencapaian, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+pencapaianCols+` FROM pencapaian
+		  WHERE murid_user_id = ? AND library_kind IS NOT NULL
+		  ORDER BY library_kind ASC, library_ref ASC`, muridUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Pencapaian{}
+	for rows.Next() {
+		var p Pencapaian
+		if err := rows.Scan(&p.ID, &p.MuridUserID, &p.MateriAjarID, &p.LibraryKind,
+			&p.LibraryAspect, &p.LibraryRef, &p.Status,
+			&p.NilaiAngka, &p.NilaiHuruf, &p.Tanggal, &p.Catatan, &p.RecordedBy,
+			&p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 func (s *PencapaianStore) Delete(ctx context.Context, id string) error {

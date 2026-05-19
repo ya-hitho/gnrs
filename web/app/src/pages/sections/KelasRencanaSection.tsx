@@ -22,6 +22,7 @@ import { ApiError } from '@/api/client'
 import { Button } from '@/components/Button'
 import { Dialog } from '@/components/Dialog'
 import { Input } from '@/components/Input'
+import { LibraryRefLabel } from '@/components/LibraryRefLabel'
 import { PageShell } from '@/components/PageShell'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -453,15 +454,12 @@ export function KelasRencanaSection() {
                                 </div>
                               </>
                             ) : it.libraryKind ? (
-                              <>
-                                <div className="text-xs uppercase tracking-wide text-sky-700">
-                                  {it.libraryKind}
-                                  {it.libraryAspect ? ` · ${it.libraryAspect}` : ''}
-                                </div>
-                                <div className={cn('text-sm', it.selesai ? 'font-semibold' : '')}>
-                                  {it.libraryRef || '—'}
-                                </div>
-                              </>
+                              <LibraryRefLabel
+                                libraryKind={it.libraryKind}
+                                libraryRef={it.libraryRef}
+                                libraryAspect={it.libraryAspect}
+                                className={cn(it.selesai ? 'font-semibold' : '')}
+                              />
                             ) : (
                               <div className="text-sm italic text-slate-500">
                                 Materi sudah dihapus

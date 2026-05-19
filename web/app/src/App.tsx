@@ -10,6 +10,7 @@ import { TeachersPage } from '@/pages/Teachers'
 import { TeacherDetailPage } from '@/pages/TeacherDetail'
 import { NewTeacherPage } from '@/pages/TeacherNew'
 import { KelasLayout } from '@/pages/Kelas'
+import { LiveSesiPage } from '@/pages/LiveSesi'
 import { KelasListSection } from '@/pages/sections/KelasListSection'
 import { KelasCalendarSection } from '@/pages/sections/KelasCalendarSection'
 import { KelasRencanaSection } from '@/pages/sections/KelasRencanaSection'
@@ -31,6 +32,7 @@ import { SettingsLayout } from '@/pages/Pengaturan'
 import { KurikulumSection } from '@/pages/sections/KurikulumSection'
 import { TahunAjaranSection } from '@/pages/sections/TahunAjaranSection'
 import { InstansiSection } from '@/pages/sections/InstansiSection'
+import { WhatsappSection } from '@/pages/sections/WhatsappSection'
 
 export function App() {
   const { user, loading } = useAuth()
@@ -41,6 +43,10 @@ export function App() {
       <Route
         path="/login"
         element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+      />
+      <Route
+        path="/kelas/:kelasId/sesi/:sesiId/live"
+        element={user ? <LiveSesiPage /> : <Navigate to="/login" replace />}
       />
       <Route element={user ? <Layout /> : <Navigate to="/login" replace />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -83,6 +89,7 @@ export function App() {
           <Route path="pengguna" element={<UsersPage />} />
           <Route path="kurikulum" element={<KurikulumSection />} />
           <Route path="tahun-ajaran" element={<TahunAjaranSection />} />
+          <Route path="whatsapp" element={<WhatsappSection />} />
           {/* Back-compat redirects from the old sub-tab URLs. */}
           <Route path="kurikulum/materi" element={<Navigate to="/pengaturan/kurikulum" replace />} />
           <Route path="kurikulum/tingkat" element={<Navigate to="/pengaturan/kurikulum" replace />} />

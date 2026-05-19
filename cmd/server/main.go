@@ -150,6 +150,7 @@ func run() error {
 	pencapaian := store.NewPencapaian(db)
 	settings := store.NewSettings(db)
 	attendances := store.NewAttendances(db)
+	diajarkan := store.NewDiajarkan(db)
 
 	if err := store.SeedKarakter(context.Background(), db); err != nil {
 		return fmt.Errorf("seed karakter: %w", err)
@@ -221,7 +222,7 @@ func run() error {
 			p.Get("/materi/ajar/{id}/library-refs", kurikulumH.ListLibraryRefs)
 			p.Get("/materi/ajar/{id}/relations", kurikulumH.ListRelations)
 
-			sesiH := handler.NewSesi(sesi, kelas, bacaan)
+			sesiH := handler.NewSesi(sesi, kelas, bacaan, attendances, pencapaian, diajarkan)
 			p.Get("/sesi", sesiH.List)
 			p.Get("/sesi/{id}", sesiH.Get)
 			p.Post("/sesi", sesiH.Create)
@@ -229,6 +230,13 @@ func run() error {
 			p.Delete("/sesi/{id}", sesiH.Delete)
 			p.Post("/sesi/{id}/start", sesiH.Start)
 			p.Post("/sesi/{id}/end", sesiH.End)
+			p.Patch("/sesi/{id}/live", sesiH.SetLive)
+
+			diajarkanH := handler.NewDiajarkan(diajarkan)
+			p.Get("/sesi/{id}/diajarkan", diajarkanH.List)
+			p.Post("/sesi/{id}/diajarkan", diajarkanH.Create)
+			p.Patch("/sesi/{id}/diajarkan/{itemId}", diajarkanH.Update)
+			p.Delete("/sesi/{id}/diajarkan/{itemId}", diajarkanH.Delete)
 
 			bacaanH := handler.NewBacaan(bacaan, users)
 			p.Get("/bacaan", bacaanH.List)
@@ -239,6 +247,7 @@ func run() error {
 
 			pencapaianH := handler.NewPencapaian(pencapaian, users)
 			p.Get("/pencapaian", pencapaianH.List)
+			p.Get("/pencapaian/library", pencapaianH.ListLibrary)
 			p.Post("/pencapaian", pencapaianH.Upsert)
 			p.Delete("/pencapaian/{id}", pencapaianH.Delete)
 
@@ -257,6 +266,7 @@ func run() error {
 			p.Get("/kelas", kelasH.List)
 			p.Get("/kelas/{id}", kelasH.Get)
 			p.Get("/kelas/{id}/anggota", kelasH.ListAnggota)
+				p.Get("/kelas/{id}/guru", kelasH.ListGuruAnggota)
 
 			rencanaH := handler.NewRencana(rencana)
 			p.Get("/rencana-bulanan", rencanaH.List)
@@ -333,6 +343,8 @@ func run() error {
 				adm.Delete("/kelas/{id}", kelasH.Delete)
 				adm.Post("/kelas/{id}/anggota", kelasH.AddAnggota)
 				adm.Delete("/kelas/{id}/anggota/{muridId}", kelasH.RemoveAnggota)
+				adm.Post("/kelas/{id}/guru", kelasH.AddGuruAnggota)
+				adm.Delete("/kelas/{id}/guru/{guruId}", kelasH.RemoveGuruAnggota)
 
 				adm.Post("/rencana-bulanan", rencanaH.Create)
 				adm.Delete("/rencana-bulanan/{id}", rencanaH.Delete)

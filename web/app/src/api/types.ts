@@ -37,7 +37,9 @@ export type Student = {
   leaveReason?: string
   status: StudentStatus
   parentName?: string
+  parentTitle?: string
   parentPhone?: string
+  parentPhoneRegion?: 'ID' | 'SG' | 'US' | 'CA'
   parentEmail?: string
   photoUrl?: string
   createdAt: string
@@ -61,7 +63,9 @@ export type StudentInput = {
   leaveReason?: string
   status: StudentStatus
   parentName?: string
+  parentTitle?: string
   parentPhone?: string
+  parentPhoneRegion?: 'ID' | 'SG' | 'US' | 'CA'
   parentEmail?: string
 }
 

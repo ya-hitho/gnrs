@@ -38,9 +38,11 @@ type studentBody struct {
 	LeftAt      *string `json:"leftAt,omitempty"       validate:"omitempty,datetime=2006-01-02"`
 	LeaveReason *string `json:"leaveReason,omitempty"  validate:"omitempty,max=500"`
 	Status      string  `json:"status"      validate:"required,oneof=active left"`
-	ParentName  *string `json:"parentName,omitempty"   validate:"omitempty,max=200"`
-	ParentPhone *string `json:"parentPhone,omitempty"  validate:"omitempty,max=64"`
-	ParentEmail *string `json:"parentEmail,omitempty"  validate:"omitempty,email"`
+	ParentName        *string `json:"parentName,omitempty"        validate:"omitempty,max=200"`
+	ParentTitle       *string `json:"parentTitle,omitempty"       validate:"omitempty,max=80"`
+	ParentPhone       *string `json:"parentPhone,omitempty"       validate:"omitempty,max=64"`
+	ParentPhoneRegion *string `json:"parentPhoneRegion,omitempty" validate:"omitempty,oneof=ID SG US CA"`
+	ParentEmail       *string `json:"parentEmail,omitempty"       validate:"omitempty,email"`
 }
 
 func (h *Students) parse(r *http.Request) (store.StudentInput, error) {
@@ -59,9 +61,11 @@ func (h *Students) parse(r *http.Request) (store.StudentInput, error) {
 		Kelompok:    trimPtr(b.Kelompok),
 		LeaveReason: trimPtr(b.LeaveReason),
 		Status:      model.StudentStatus(b.Status),
-		ParentName:  trimPtr(b.ParentName),
-		ParentPhone: trimPtr(b.ParentPhone),
-		ParentEmail: trimPtr(b.ParentEmail),
+		ParentName:        trimPtr(b.ParentName),
+		ParentTitle:       trimPtr(b.ParentTitle),
+		ParentPhone:       trimPtr(b.ParentPhone),
+		ParentPhoneRegion: trimPtr(b.ParentPhoneRegion),
+		ParentEmail:       trimPtr(b.ParentEmail),
 	}
 	if b.Level != nil && *b.Level != "" {
 		l := model.StudentLevel(*b.Level)

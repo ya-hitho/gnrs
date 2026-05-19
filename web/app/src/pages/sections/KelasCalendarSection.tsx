@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Pencil, Play, Plus, RotateCcw, Square, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Play, Plus, Radio, RotateCcw, Square, Trash2, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import {
   deleteSesi,
@@ -14,7 +15,7 @@ import { ApiError } from '@/api/client'
 import { Button } from '@/components/Button'
 import { PageShell } from '@/components/PageShell'
 import { RescheduleSesiDialog } from '@/components/RescheduleSesiDialog'
-import { SesiEndDialog } from '@/components/SesiEndDialog'
+import { EndSesiSummaryDialog } from '@/components/EndSesiSummaryDialog'
 import { SesiFormDialog } from '@/components/SesiFormDialog'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
@@ -122,6 +123,11 @@ export function KelasCalendarSection() {
     queryFn: () => listKelas({}),
     staleTime: 60_000,
   })
+  const kelasNameById = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const k of kelasList) m[k.id] = k.nama
+    return m
+  }, [kelasList])
 
   // Map kelasId → "mine"? Sesi reference kelasId, so we filter against that.
   const myKelasIds = useMemo(
@@ -160,6 +166,7 @@ export function KelasCalendarSection() {
   })
 
   const [endingSesi, setEndingSesi] = useState<Sesi | null>(null)
+  const [reviewingSesi, setReviewingSesi] = useState<Sesi | null>(null)
 
   // Client-side filter — apply jenjang + kelasMode + kelasFilter after
   // fetching the month.
@@ -428,12 +435,14 @@ export function KelasCalendarSection() {
                   <div className="flex flex-col gap-0.5">
                     {items.slice(0, 3).map((s) => {
                       const st = statusOf(s, today)
+                      const knama = s.kelasId ? kelasNameById[s.kelasId] : null
                       return (
                         <span
                           key={s.id}
                           className={'truncate rounded px-1.5 py-0.5 text-[10px] leading-tight ' + STATUS_CLASSES[st].bar}
                         >
                           {s.mulai ? <span className="font-semibold">{s.mulai} </span> : null}
+                          {knama ? <span className="font-medium">{knama} · </span> : null}
                           {s.topik}
                         </span>
                       )
@@ -468,6 +477,7 @@ export function KelasCalendarSection() {
           today={today}
           items={dayList}
           tingkatList={tingkatList.map((t) => t.nama)}
+          kelasNameById={kelasNameById}
           canManage={canManage}
           onClose={() => setPickedDate(null)}
           onPrev={() => gotoDate(shiftDate(pickedDate, -1))}
@@ -478,6 +488,7 @@ export function KelasCalendarSection() {
           onStart={(s) => startMut.mutate(s.id)}
           onEnd={(s) => setEndingSesi(s)}
           onReschedule={(s) => setRescheduling(s)}
+          onReview={(s) => setReviewingSesi(s)}
           deleting={deleteMut.isPending}
           starting={startMut.isPending}
           ending={false}
@@ -528,12 +539,23 @@ export function KelasCalendarSection() {
       ) : null}
 
       {endingSesi ? (
-        <SesiEndDialog
+        <EndSesiSummaryDialog
           sesi={endingSesi}
           onClose={() => setEndingSesi(null)}
-          onSaved={() => {
+          onEnded={() => {
             invalidate()
             setEndingSesi(null)
+          }}
+        />
+      ) : null}
+
+      {reviewingSesi ? (
+        <EndSesiSummaryDialog
+          sesi={reviewingSesi}
+          onClose={() => setReviewingSesi(null)}
+          onEnded={() => {
+            invalidate()
+            setReviewingSesi(null)
           }}
         />
       ) : null}
@@ -573,6 +595,7 @@ function DayPopup({
   todayIso,
   today,
   items,
+  kelasNameById,
   canManage,
   onClose,
   onPrev,
@@ -583,6 +606,7 @@ function DayPopup({
   onStart,
   onEnd,
   onReschedule,
+  onReview,
   deleting,
   starting,
   ending,
@@ -592,6 +616,7 @@ function DayPopup({
   today: Date
   items: Sesi[]
   tingkatList: string[]
+  kelasNameById: Record<string, string>
   canManage: boolean
   onClose: () => void
   onPrev: () => void
@@ -602,6 +627,7 @@ function DayPopup({
   onStart: (s: Sesi) => void
   onEnd: (s: Sesi) => void
   onReschedule: (s: Sesi) => void
+  onReview?: (s: Sesi) => void
   deleting: boolean
   starting: boolean
   ending: boolean
@@ -689,6 +715,11 @@ function DayPopup({
                     <span className={'mt-1 inline-block h-2 w-2 rounded-full ' + STATUS_CLASSES[st].dot} />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        {s.kelasId && kelasNameById[s.kelasId] ? (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-800">
+                            🏫 {kelasNameById[s.kelasId]}
+                          </span>
+                        ) : null}
                         {s.tingkat ? <span className="font-medium text-slate-700">{s.tingkat}</span> : null}
                         {s.mulai ? (
                           <span>
@@ -700,7 +731,18 @@ function DayPopup({
                           {STATUS_LABEL[st]}
                         </span>
                       </div>
-                      <div className="mt-0.5 break-words text-sm font-medium text-slate-900">{s.topik}</div>
+                      {s.endedAt ? (
+                        <button
+                          type="button"
+                          onClick={() => onReview?.(s)}
+                          className="mt-0.5 break-words text-left text-sm font-medium text-slate-900 underline decoration-dotted underline-offset-2 hover:opacity-75"
+                          title="Lihat rangkuman materi yang sudah diajarkan"
+                        >
+                          {s.topik}
+                        </button>
+                      ) : (
+                        <div className="mt-0.5 break-words text-sm font-medium text-slate-900">{s.topik}</div>
+                      )}
                       {s.catatan ? (
                         <div className="mt-1 break-words text-xs text-slate-600">{s.catatan}</div>
                       ) : null}
@@ -719,16 +761,31 @@ function DayPopup({
                             <Play size={16} />
                           </button>
                         ) : !s.endedAt ? (
-                          <button
-                            type="button"
-                            onClick={() => onEnd(s)}
-                            disabled={ending}
-                            className="rounded-md p-1.5 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            aria-label="Akhiri sesi"
-                            title="Akhiri sesi"
-                          >
-                            <Square size={16} />
-                          </button>
+                          <>
+                            <Link
+                              to={`/kelas/${s.kelasId ?? ''}/sesi/${s.id}/live`}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                              aria-label="Live stage"
+                              title="Buka tampilan Live"
+                            >
+                              <span className="relative flex h-2 w-2">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                              </span>
+                              <Radio size={13} />
+                              Live
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => onEnd(s)}
+                              disabled={ending}
+                              className="rounded-md p-1.5 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              aria-label="Akhiri sesi"
+                              title="Akhiri sesi"
+                            >
+                              <Square size={16} />
+                            </button>
+                          </>
                         ) : null}
                         {!s.endedAt ? (
                           <button

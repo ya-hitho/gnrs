@@ -37,9 +37,11 @@ type StudentInput struct {
 	LeftAt      *time.Time
 	LeaveReason *string
 	Status      model.StudentStatus
-	ParentName  *string
-	ParentPhone *string
-	ParentEmail *string
+	ParentName        *string
+	ParentTitle       *string
+	ParentPhone       *string
+	ParentPhoneRegion *string
+	ParentEmail       *string
 }
 
 type ListParams struct {
@@ -57,7 +59,7 @@ type ListResult struct {
 
 const selectStudentCols = `id, name, nickname, date_of_birth, gender, level, kelompok,
 	joined_at, left_at, leave_reason, membership_status,
-	parent_name, parent_phone, parent_email, photo_path, created_at, updated_at`
+	parent_name, parent_title, parent_phone, parent_phone_region, parent_email, photo_path, created_at, updated_at`
 
 func (s *Students) Create(ctx context.Context, in StudentInput) (*model.Student, error) {
 	if in.Status == "" {
@@ -75,17 +77,17 @@ func (s *Students) Create(ctx context.Context, in StudentInput) (*model.Student,
 		`INSERT INTO users (
 		   id, email, password, name, role, active,
 		   nickname, date_of_birth, gender, kelompok,
-		   level, parent_name, parent_phone, parent_email,
+		   level, parent_name, parent_title, parent_phone, parent_phone_region, parent_email,
 		   joined_at, left_at, leave_reason, membership_status,
 		   created_at, updated_at
 		 ) VALUES (?, ?, ?, ?, 'murid', 1,
 		           ?, ?, ?, ?,
-		           ?, ?, ?, ?,
+		           ?, ?, ?, ?, ?, ?,
 		           ?, ?, ?, ?,
 		           ?, ?)`,
 		id, id+"@stub.gnrs.local", string(hash), in.Name,
 		in.Nickname, nullableDate(in.DateOfBirth), in.Gender, in.Kelompok,
-		nullableLevel(in.Level), in.ParentName, in.ParentPhone, in.ParentEmail,
+		nullableLevel(in.Level), in.ParentName, in.ParentTitle, in.ParentPhone, in.ParentPhoneRegion, in.ParentEmail,
 		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason, string(in.Status),
 		now, now,
 	)
@@ -110,12 +112,12 @@ func (s *Students) Update(ctx context.Context, id string, in StudentInput) (*mod
 		`UPDATE users SET
 		   name = ?, nickname = ?, date_of_birth = ?, gender = ?, level = ?, kelompok = ?,
 		   joined_at = ?, left_at = ?, leave_reason = ?, membership_status = ?,
-		   parent_name = ?, parent_phone = ?, parent_email = ?, updated_at = ?
+		   parent_name = ?, parent_title = ?, parent_phone = ?, parent_phone_region = ?, parent_email = ?, updated_at = ?
 		 WHERE id = ? AND role = 'murid'`,
 		in.Name, in.Nickname,
 		nullableDate(in.DateOfBirth), in.Gender, nullableLevel(in.Level), in.Kelompok,
 		nullableDate(in.JoinedAt), nullableDate(in.LeftAt), in.LeaveReason, string(in.Status),
-		in.ParentName, in.ParentPhone, in.ParentEmail,
+		in.ParentName, in.ParentTitle, in.ParentPhone, in.ParentPhoneRegion, in.ParentEmail,
 		now, id,
 	)
 	if err != nil {
@@ -334,7 +336,7 @@ func readStudent(s scanner) (*model.Student, error) {
 	if err := s.Scan(
 		&st.ID, &st.Name, &st.Nickname, &dob, &st.Gender, &level, &st.Kelompok,
 		&joinedAt, &leftAt, &st.LeaveReason, &status,
-		&st.ParentName, &st.ParentPhone, &st.ParentEmail,
+		&st.ParentName, &st.ParentTitle, &st.ParentPhone, &st.ParentPhoneRegion, &st.ParentEmail,
 		&photoPath, &st.CreatedAt, &st.UpdatedAt,
 	); err != nil {
 		return nil, err

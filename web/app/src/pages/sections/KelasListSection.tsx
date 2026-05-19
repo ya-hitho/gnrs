@@ -3,9 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ChevronDown, ChevronRight, Pencil, Play, Plus, RotateCcw, Square, Trash2, Users } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Play, Plus, Radio, RotateCcw, Square, Trash2, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import {
+  addAnggota,
   createKelas,
   deleteKelas,
   listKelas,
@@ -15,6 +17,7 @@ import {
 } from '@/api/kelas'
 import { listTingkat } from '@/api/kurikulum'
 import { deleteSesi, listSesi, startSesi, type Sesi } from '@/api/sesi'
+import { listStudents } from '@/api/students'
 import { listUsers } from '@/api/users'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/Button'
@@ -24,7 +27,7 @@ import { Input } from '@/components/Input'
 import { KelasAnggotaDialog } from '@/components/KelasAnggotaDialog'
 import { PageShell } from '@/components/PageShell'
 import { RescheduleSesiDialog } from '@/components/RescheduleSesiDialog'
-import { SesiEndDialog } from '@/components/SesiEndDialog'
+import { EndSesiSummaryDialog } from '@/components/EndSesiSummaryDialog'
 import { SesiFormDialog } from '@/components/SesiFormDialog'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -241,6 +244,7 @@ function KelasCard({
   const [rescheduling, setRescheduling] = useState<Sesi | null>(null)
   const [editingSesi, setEditingSesi] = useState<Sesi | null>(null)
   const [endingSesi, setEndingSesi] = useState<Sesi | null>(null)
+  const [reviewingSesi, setReviewingSesi] = useState<Sesi | null>(null)
   const [addingSesi, setAddingSesi] = useState(false)
   const qc = useQueryClient()
   const toast = useToast()
@@ -380,13 +384,30 @@ function KelasCard({
                         const canResched = isAdmin && !s.endedAt && (st === 'upcoming' || st === 'missed' || st === 'ongoing')
                         return (
                           <li key={s.id} className="flex items-center gap-1.5 px-3 py-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-medium text-slate-900">{s.topik}</div>
-                              <div className="text-xs text-slate-500">
-                                {s.tanggal}
-                                {s.mulai ? ` · ${s.mulai}${s.selesai ? `–${s.selesai}` : ''}` : ''}
+                            {s.endedAt ? (
+                              <button
+                                type="button"
+                                onClick={() => setReviewingSesi(s)}
+                                className="min-w-0 flex-1 cursor-pointer text-left transition hover:opacity-75"
+                                title="Lihat rangkuman materi yang sudah diajarkan"
+                              >
+                                <div className="text-sm font-medium text-slate-900 underline decoration-dotted underline-offset-2">
+                                  {s.topik}
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                  {s.tanggal}
+                                  {s.mulai ? ` · ${s.mulai}${s.selesai ? `–${s.selesai}` : ''}` : ''}
+                                </div>
+                              </button>
+                            ) : (
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-slate-900">{s.topik}</div>
+                                <div className="text-xs text-slate-500">
+                                  {s.tanggal}
+                                  {s.mulai ? ` · ${s.mulai}${s.selesai ? `–${s.selesai}` : ''}` : ''}
+                                </div>
                               </div>
-                            </div>
+                            )}
                             {isAdmin ? (
                               <>
                                 {!s.startedAt ? (
@@ -401,15 +422,30 @@ function KelasCard({
                                     <Play size={14} />
                                   </button>
                                 ) : !s.endedAt ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setEndingSesi(s)}
-                                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
-                                    aria-label="Akhiri sesi"
-                                    title="Akhiri sesi"
-                                  >
-                                    <Square size={14} />
-                                  </button>
+                                  <>
+                                    <Link
+                                      to={`/kelas/${s.kelasId ?? kelas.id}/sesi/${s.id}/live`}
+                                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                                      aria-label="Live stage"
+                                      title="Buka tampilan Live"
+                                    >
+                                      <span className="relative flex h-2 w-2">
+                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                                        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                                      </span>
+                                      <Radio size={13} />
+                                      Live
+                                    </Link>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEndingSesi(s)}
+                                      className="rounded-md p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
+                                      aria-label="Akhiri sesi"
+                                      title="Akhiri sesi"
+                                    >
+                                      <Square size={14} />
+                                    </button>
+                                  </>
                                 ) : null}
                                 {canResched ? (
                                   <button
@@ -495,12 +531,23 @@ function KelasCard({
       ) : null}
 
       {endingSesi ? (
-        <SesiEndDialog
+        <EndSesiSummaryDialog
           sesi={endingSesi}
           onClose={() => setEndingSesi(null)}
-          onSaved={() => {
+          onEnded={() => {
             invalidateSesi()
             setEndingSesi(null)
+          }}
+        />
+      ) : null}
+
+      {reviewingSesi ? (
+        <EndSesiSummaryDialog
+          sesi={reviewingSesi}
+          onClose={() => setReviewingSesi(null)}
+          onEnded={() => {
+            invalidateSesi()
+            setReviewingSesi(null)
           }}
         />
       ) : null}
@@ -518,6 +565,54 @@ const schema = z.object({
 })
 type FormValues = z.infer<typeof schema>
 
+// Compute integer age (years) from an ISO YYYY-MM-DD date string.
+function ageFromDob(dob?: string): number | null {
+  if (!dob) return null
+  const d = new Date(dob)
+  if (isNaN(d.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+  return age
+}
+
+// Pick the most appropriate tingkat for a murid: first try umur-based match
+// (smallest tingkat.umur >= age), then fall back to a fuzzy level-name match.
+function matchTingkatForMurid(
+  m: { dateOfBirth?: string; level?: string } | undefined,
+  tingkatList: { id: string; nama: string; urutan: number; umur?: number | null }[],
+): { id: string; nama: string } | undefined {
+  if (!m || tingkatList.length === 0) return undefined
+  const age = ageFromDob(m.dateOfBirth)
+  if (age != null) {
+    const withUmur = tingkatList.filter((t) => t.umur != null) as {
+      id: string
+      nama: string
+      umur: number
+    }[]
+    if (withUmur.length > 0) {
+      const eligible = withUmur
+        .filter((t) => t.umur >= age)
+        .sort((a, b) => a.umur - b.umur)
+      if (eligible[0]) return eligible[0]
+      // age above all tingkat — pick the largest umur bucket.
+      const sortedDesc = [...withUmur].sort((a, b) => b.umur - a.umur)
+      return sortedDesc[0]
+    }
+  }
+  if (m.level) {
+    const lvl = m.level.toLowerCase()
+    return tingkatList.find(
+      (t) =>
+        t.nama.toLowerCase() === lvl ||
+        t.nama.toLowerCase().includes(lvl) ||
+        lvl.includes(t.nama.toLowerCase()),
+    )
+  }
+  return undefined
+}
+
 function KelasFormDialog({
   kelas,
   onClose,
@@ -529,6 +624,7 @@ function KelasFormDialog({
 }) {
   const qc = useQueryClient()
   const toast = useToast()
+  const isCreate = !kelas
   const { data: tingkatList = [] } = useQuery({
     queryKey: ['tingkat'],
     queryFn: listTingkat,
@@ -541,16 +637,27 @@ function KelasFormDialog({
   })
   const guruOptions = gurus?.items ?? []
 
-  // Selected guru ids (multi-pick). Default to existing assignment if editing.
+  const [muridSearch, setMuridSearch] = useState('')
+  const { data: studentsRes } = useQuery({
+    queryKey: ['students-pick', { q: muridSearch }],
+    queryFn: () => listStudents({ q: muridSearch, status: 'active', limit: 200, offset: 0 }),
+    enabled: isCreate,
+    staleTime: 30_000,
+  })
+  const muridOptions = studentsRes?.items ?? []
+
   const [pickedGuru, setPickedGuru] = useState<string[]>(
     () => kelas?.guruUserIds ?? (kelas?.guruUserId ? [kelas.guruUserId] : []),
   )
   const toggleGuru = (id: string) =>
     setPickedGuru((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
 
+  const [pickedMurid, setPickedMurid] = useState<string[]>([])
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -562,9 +669,42 @@ function KelasFormDialog({
     },
   })
 
+  const muridById = useMemo(() => {
+    const m: Record<string, (typeof muridOptions)[number]> = {}
+    for (const s of muridOptions) m[s.id] = s
+    return m
+  }, [muridOptions])
+
+  const toggleMurid = (id: string) => {
+    setPickedMurid((cur) => {
+      const adding = !cur.includes(id)
+      const next = adding ? [...cur, id] : cur.filter((x) => x !== id)
+      if (adding) {
+        const m = muridById[id]
+        const t = matchTingkatForMurid(m, tingkatList)
+        if (t) setValue('tingkat', t.nama, { shouldValidate: true, shouldDirty: true })
+      }
+      return next
+    })
+  }
+
   const mut = useMutation({
-    mutationFn: (input: KelasInput) =>
-      kelas ? updateKelas(kelas.id, input) : createKelas(input),
+    mutationFn: async (input: KelasInput) => {
+      const saved = kelas ? await updateKelas(kelas.id, input) : await createKelas(input)
+      if (isCreate && pickedMurid.length > 0) {
+        try {
+          await addAnggota(saved.id, pickedMurid)
+        } catch (e) {
+          toast(
+            e instanceof ApiError
+              ? `Kelas dibuat, tapi gagal tambah murid: ${e.message}`
+              : 'Kelas dibuat, tapi gagal menambahkan sebagian murid.',
+            'error',
+          )
+        }
+      }
+      return saved
+    },
     onSuccess: () => {
       toast(kelas ? 'Kelas diperbarui' : 'Kelas ditambahkan', 'success')
       qc.invalidateQueries({ queryKey: ['kelas'] })
@@ -656,6 +796,59 @@ function KelasFormDialog({
             )}
           </div>
         </Field>
+        {isCreate ? (
+          <Field
+            label={`Murid (${pickedMurid.length} dipilih)`}
+            htmlFor="kelas-murid"
+            hint="Pilih generus aktif. Tingkat akan menyesuaikan murid pertama bila kosong."
+          >
+            <Input
+              id="kelas-murid"
+              placeholder="Cari nama generus…"
+              value={muridSearch}
+              onChange={(e) => setMuridSearch(e.target.value)}
+              className="mb-2"
+            />
+            <div className="max-h-56 overflow-y-auto rounded-md border border-slate-300 bg-white">
+              {muridOptions.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-slate-500">
+                  {muridSearch ? 'Tidak ada generus yang cocok.' : 'Belum ada generus aktif.'}
+                </p>
+              ) : (
+                muridOptions.map((s) => {
+                  const checked = pickedMurid.includes(s.id)
+                  return (
+                    <label
+                      key={s.id}
+                      className={
+                        'flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm transition ' +
+                        (checked ? 'bg-sky-50' : 'hover:bg-slate-50')
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleMurid(s.id)}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                      <span className="flex-1 truncate">
+                        {s.name}
+                        {s.nickname ? (
+                          <span className="ml-1 text-xs text-slate-500">({s.nickname})</span>
+                        ) : null}
+                      </span>
+                      {s.level ? (
+                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                          {s.level}
+                        </span>
+                      ) : null}
+                    </label>
+                  )
+                })
+              )}
+            </div>
+          </Field>
+        ) : null}
         <Field label="Deskripsi (opsional)" htmlFor="kelas-deskripsi">
           <Input id="kelas-deskripsi" {...register('deskripsi')} />
         </Field>

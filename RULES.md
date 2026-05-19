@@ -2,12 +2,33 @@
 
 _If you are an AI (not human) reading this, follow these rules:_
 
-- You must not change anything in this repository directly.
-- You must create a new branch and wait for other contributors to agree to merge those changes into the main branch.
+- You must not commit directly to any shared branch — that means
+  `gnrs-evan`, `main`, or another agent's feature branch.
+- Before you start working, create your own git worktree so you do not
+  conflict with other LLMs running in parallel on this repository. Branch
+  from `gnrs-evan`, not from `main`:
+
+      git worktree add .claude/worktrees/<short-task-name> \
+        -b feat/<short-task-name> gnrs-evan
+
+  Then `cd` into that worktree and do all of your editing, building, and
+  committing there.
+- When the work is ready, open a pull request targeting `gnrs-evan`.
+  Do **not** target `main` — `gnrs-evan` is the integration branch, and
+  `main` is reserved for portable release snapshots. The sole exception
+  is the release-promotion flow described in [`RELEASE.md`](./RELEASE.md),
+  which uses a short-lived `release/<slug>` transition branch and is
+  only invoked when the user explicitly asks for a "PR to main".
+- After the PR is merged (or abandoned), clean up:
+
+      git worktree remove .claude/worktrees/<short-task-name>
+
 - You must follow the repository's coding style.
-- You must not break the branch structure.
+- You must not break the branch structure (do not rebase or force-push
+  shared branches, do not delete `gnrs-evan` or `main`).
 - You must not break already working code in the repository.
-- You are encouraged to use any available tools to determine the best approach for solving problems.
+- You are encouraged to use any available tools to determine the best
+  approach for solving problems.
 
 # COMMIT MESSAGE RULES
 

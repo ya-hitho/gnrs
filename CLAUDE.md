@@ -39,11 +39,21 @@ follow the documents below before doing anything else:
    (one-tab-per-task, never restart Chrome, etc.). Do not issue
    the first MCP call without running the pre-flight there.
 
-`gnrs` is **local-only**: there is no shared remote or public
-production deployment, no Cloudflare tunnel, and no `deploy.sh`.
-Every agent builds and runs its own local container to test (see
-*Dev deployment* below), and `gnrs-evan` is the integration branch
-— merging a PR into it is what completes a feature.
+For per-feature work, `gnrs` behaves as **local-only**: every
+agent tests against its **own** local container (see *Dev
+deployment* below), there is no shared public production
+deployment, and there is no Cloudflare tunnel. `gnrs-evan` is the
+integration branch — merging a PR into it is what completes a
+feature.
+
+A separate, **operator-invoked** remote deploy does exist:
+`deploy/deploy.sh` rsyncs the current branch to a personal
+WireGuard-only host and runs it under `podman` there (see
+[`deploy/DEPLOY.md`](./deploy/DEPLOY.md)). It is **not** part of
+the per-feature loop — agents do not run it on every PR — and the
+target is reachable only over the operator's VPN, not from the
+public internet. Run it only when the user explicitly asks
+(e.g. "deploy", "ship it").
 
 ## Per-session lifecycle (mandatory loop)
 
@@ -85,8 +95,11 @@ feature half-done for a future session:
    worktree directory is gone, the branch refs are gone, and the
    dev container is removed.
 
-There is **no separate "deploy to prod" step** — `gnrs` has no
-shared deployment. Merging into `gnrs-evan` is the end state.
+There is **no per-feature "deploy to prod" step** — merging into
+`gnrs-evan` is the end state of the feature loop. The optional
+remote deploy (`deploy/deploy.sh`) is operator-invoked and
+orthogonal to this loop; do not run it as part of finishing a
+feature unless the user explicitly asks.
 
 If the session ends before the loop completes (context limit,
 user interrupts, etc.), state in plain text which step you're on
@@ -248,6 +261,7 @@ is browser-tested.
 | Feature test procedure             | [`TEST.md`](./TEST.md)              |
 | Chrome DevTools (parallel agents)  | [`CHROME_DEVTOOLS.md`](./CHROME_DEVTOOLS.md) |
 | Promotion / PR to `main` workflow  | [`RELEASE.md`](./RELEASE.md)        |
+| Remote deploy (operator-invoked)   | [`deploy/DEPLOY.md`](./deploy/DEPLOY.md) |
 | Stack, layout, env vars, API       | [`README.md`](./README.md)          |
 | Running under Podman               | [`PODMAN.md`](./PODMAN.md)          |
 

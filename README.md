@@ -128,5 +128,9 @@ Role is stored on the user row; the seed admin is created with `admin`.
 
 ## Project rules
 
-See [`RULES.md`](./RULES.md) — branch + PR workflow, commit message
-format.
+If you are an AI agent working in this repo, start with
+[`CLAUDE.md`](./CLAUDE.md) — it is the entry point and links the rest:
+[`RULES.md`](./RULES.md) (branch + worktree workflow, commit format),
+[`TEST.md`](./TEST.md) (Chrome DevTools test pass),
+[`CHROME_DEVTOOLS.md`](./CHROME_DEVTOOLS.md) (shared-browser etiquette),
+and [`RELEASE.md`](./RELEASE.md) (promotion to `main`).

@@ -234,5 +234,38 @@
       "errIsoDate": "Gunakan format YYYY-MM-DD",
       "errRequired": "Wajib diisi"
     }
+  },
+  "kelas": {
+    "eyebrow": "Ruang Kelas",
+    "title": "Kelas",
+    "subtitle": "Kelola kelas, kalender sesi, dan rencana ajar bulanan.",
+    "tabs": {
+      "list": "Daftar",
+      "calendar": "Kalender",
+      "rencana": "Rencana Ajar"
+    }
+  },
+  "reschedule": {
+    "title": "Reschedule Sesi",
+    "origin": "Asal",
+    "newDate": "Tanggal baru",
+    "topic": "Topik",
+    "start": "Mulai",
+    "end": "Selesai",
+    "materiLabel": "Materi pengganti (opsional, bisa lebih dari satu)",
+    "fromKurikulum": "Dari Kurikulum",
+    "materiHint": "Materi akan otomatis masuk Rencana Ajar bulan {{ym}}.",
+    "submit": "Jadwalkan Ulang",
+    "rescheduling": "Menjadwalkan…",
+    "toastSaved": "Sesi dijadwalkan ulang ke {{date}}",
+    "toastFailed": "Gagal menjadwalkan ulang"
+  },
+  "materi": {
+    "pickTitle": "Pilih Materi — {{tingkat}}",
+    "searchPh": "Cari tema / detail materi…",
+    "loading": "Memuat materi…",
+    "noMatch": "Tidak ada materi yang cocok.",
+    "picked": "{{count}} dipilih",
+    "addN": "Tambah ({{count}})"
   }
 }

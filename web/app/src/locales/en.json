@@ -234,5 +234,38 @@
       "errIsoDate": "Use the format YYYY-MM-DD",
       "errRequired": "Required"
     }
+  },
+  "kelas": {
+    "eyebrow": "Classroom",
+    "title": "Classes",
+    "subtitle": "Manage classes, the session calendar, and monthly teaching plans.",
+    "tabs": {
+      "list": "List",
+      "calendar": "Calendar",
+      "rencana": "Teaching plan"
+    }
+  },
+  "reschedule": {
+    "title": "Reschedule session",
+    "origin": "Originally",
+    "newDate": "New date",
+    "topic": "Topic",
+    "start": "Start",
+    "end": "End",
+    "materiLabel": "Substitute material (optional, can be more than one)",
+    "fromKurikulum": "From curriculum",
+    "materiHint": "Materials will be added to the {{ym}} teaching plan automatically.",
+    "submit": "Reschedule",
+    "rescheduling": "Rescheduling…",
+    "toastSaved": "Session rescheduled to {{date}}",
+    "toastFailed": "Failed to reschedule"
+  },
+  "materi": {
+    "pickTitle": "Pick material — {{tingkat}}",
+    "searchPh": "Search theme / material detail…",
+    "loading": "Loading materials…",
+    "noMatch": "No matching materials.",
+    "picked": "{{count}} selected",
+    "addN": "Add ({{count}})"
   }
 }

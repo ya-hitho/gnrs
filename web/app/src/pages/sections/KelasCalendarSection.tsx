@@ -244,9 +244,9 @@ export function KelasCalendarSection() {
     if (!pickedDate || creatingFor || editing) return
     const cur = pickedDate
     function onKey(e: KeyboardEvent) {
-      const t = e.target as HTMLElement | null
-      const tag = t?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (t?.isContentEditable)) return
+      const el = e.target as HTMLElement | null
+      const tag = el?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (el?.isContentEditable)) return
       let delta: number | null = null
       switch (e.key) {
         case 'ArrowLeft':

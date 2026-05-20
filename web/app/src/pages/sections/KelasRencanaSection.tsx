@@ -319,8 +319,10 @@ export function KelasRencanaSection() {
       {selKelas ? (
         <div className="mb-4 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <p className="mb-2 text-xs text-slate-500">
-            Progres semester · klik bulan untuk pindah · Sem 1 mulai {BULAN_PENDEK[SEM1_START - 1]},
-            Sem 2 mulai {BULAN_PENDEK[SEM2_START - 1]}
+            {t('kelasSection.rencana.semesterProgress', {
+              sem1: BULAN_PENDEK[SEM1_START - 1],
+              sem2: BULAN_PENDEK[SEM2_START - 1],
+            })}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {monthOrder.map((entry, idx) => {
@@ -337,7 +339,7 @@ export function KelasRencanaSection() {
                       ? 'border-sky-500 bg-sky-50 text-sky-900'
                       : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
                   )}
-                  title={`Semester ${entry.semester}`}
+                  title={t('kelasSection.rencana.semesterTitle', { n: entry.semester })}
                 >
                   <div className="font-semibold">
                     {BULAN_PENDEK[entry.month - 1]}
@@ -356,28 +358,28 @@ export function KelasRencanaSection() {
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-semibold">
-            Rencana {BULAN[bulan - 1]} {tahun}
+            {t('kelasSection.rencana.rencanaHeading', { bulan: BULAN[bulan - 1], tahun })}
             {rencana ? (
               <span className="ml-2 text-sm font-normal text-slate-500">
-                · {doneItems}/{totalItems} tuntas
+                · {t('kelasSection.rencana.tuntasOf', { done: doneItems, total: totalItems })}
               </span>
             ) : null}
           </h3>
         </div>
 
         {!selKelas ? (
-          <p className="text-sm text-slate-500">Pilih kelas terlebih dahulu untuk melihat rencana.</p>
+          <p className="text-sm text-slate-500">{t('kelasSection.rencana.pickKelasFirst')}</p>
         ) : !rencana ? (
           <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
-            <p className="font-medium text-slate-700">Belum ada rencana untuk bulan ini.</p>
+            <p className="font-medium text-slate-700">{t('kelasSection.rencana.emptyTitle')}</p>
             <p className="mt-1 text-sm text-slate-500">
               {isAdmin
-                ? 'Klik "Dari Kurikulum" untuk mulai memilih materi.'
-                : 'Hubungi guru/admin untuk menyusun rencana.'}
+                ? t('kelasSection.rencana.emptyHintAdmin')
+                : t('kelasSection.rencana.emptyHintUser')}
             </p>
           </div>
         ) : items.length === 0 ? (
-          <p className="text-sm text-slate-500">Rencana sudah dibuat tapi belum ada materi.</p>
+          <p className="text-sm text-slate-500">{t('kelasSection.rencana.rencanaEmptyItems')}</p>
         ) : (
           <div className="space-y-3">
             {groupedItems.map((g) => {
@@ -403,7 +405,7 @@ export function KelasRencanaSection() {
                       className="rounded-full px-2 py-0.5 text-xs font-medium"
                       style={{ background: color + '22', color }}
                     >
-                      {tuntas}/{total} tuntas
+                      {t('kelasSection.rencana.groupTuntasOf', { done: tuntas, total })}
                     </span>
                     <span className="ml-auto text-slate-400">
                       {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
@@ -427,8 +429,8 @@ export function KelasRencanaSection() {
                                 : 'border-slate-300 bg-white text-transparent hover:border-emerald-400',
                               !isAdmin && 'cursor-default opacity-70',
                             )}
-                            aria-label={it.selesai ? 'Tandai belum' : 'Tandai selesai'}
-                            title={it.selesai ? 'Tandai belum' : 'Tandai selesai'}
+                            aria-label={it.selesai ? t('kelasSection.rencana.markIncomplete') : t('kelasSection.rencana.markComplete')}
+                            title={it.selesai ? t('kelasSection.rencana.markIncomplete') : t('kelasSection.rencana.markComplete')}
                           >
                             <Check size={14} />
                           </button>
@@ -453,7 +455,7 @@ export function KelasRencanaSection() {
                                 </div>
                                 <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
                                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
-                                    Sem {it.ajar.semester}
+                                    {t('kelasSection.rencana.semChip', { n: it.ajar.semester })}
                                   </span>
                                 </div>
                               </>
@@ -466,7 +468,7 @@ export function KelasRencanaSection() {
                               />
                             ) : (
                               <div className="text-sm italic text-slate-500">
-                                Materi sudah dihapus
+                                {t('kelasSection.rencana.materiDeleted')}
                               </div>
                             )}
                           </div>
@@ -474,11 +476,11 @@ export function KelasRencanaSection() {
                             <button
                               type="button"
                               onClick={() => {
-                                if (confirm('Hapus dari rencana?')) removeMut.mutate(it.id)
+                                if (confirm(t('kelasSection.rencana.confirmRemove'))) removeMut.mutate(it.id)
                               }}
                               className="rounded-md p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                              aria-label="Hapus item"
-                              title="Hapus dari rencana"
+                              aria-label={t('kelasSection.rencana.removeItem')}
+                              title={t('kelasSection.rencana.removeFromRencana')}
                             >
                               <X size={14} />
                             </button>
@@ -532,6 +534,7 @@ function RencanaLibraryDialog({
   onClose: () => void
   pending: boolean
 }) {
+  const { t } = useTranslation()
   // Force non-kurikulum starting state — pre-pick Quran since that's the
   // most common.
   const [value, setValue] = useState<MateriSourceValue>(() => {
@@ -542,7 +545,7 @@ function RencanaLibraryDialog({
   })
   const ready = value.libraryKind !== 'kurikulum' && (value.libraryRef ?? '').trim() !== ''
   return (
-    <Dialog title="Tambah dari Library" onClose={onClose} size="lg">
+    <Dialog title={t('kelasSection.rencana.libraryDialogTitle')} onClose={onClose} size="lg">
       <div className="space-y-4">
         {/* Lock the kurikulum tile by hiding it via local handler. */}
         <MateriSourcePicker
@@ -552,10 +555,10 @@ function RencanaLibraryDialog({
         />
         <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Batal
+            {t('common.cancel')}
           </Button>
           <Button onClick={() => onSave(value)} disabled={!ready || pending}>
-            {pending ? 'Menambahkan…' : 'Tambah'}
+            {pending ? t('kelasSection.rencana.adding') : t('kelasSection.rencana.add')}
           </Button>
         </div>
       </div>
@@ -578,6 +581,7 @@ function KurikulumPickerDialog({
   onClose: () => void
   pending: boolean
 }) {
+  const { t } = useTranslation()
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [semester, setSemester] = useState<'1' | '2'>('1')
@@ -628,10 +632,10 @@ function KurikulumPickerDialog({
     })
 
   return (
-    <Dialog title={`Tambah dari Kurikulum — ${tingkat}`} onClose={onClose} size="lg">
+    <Dialog title={t('kelasSection.rencana.kurikulumDialogTitle', { tingkat })} onClose={onClose} size="lg">
       <div className="flex flex-wrap items-center gap-2">
         <Input
-          placeholder="Cari tema / detail materi…"
+          placeholder={t('kelasSection.rencana.searchPh')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 min-w-[200px]"
@@ -647,7 +651,7 @@ function KurikulumPickerDialog({
                 semester === s ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50',
               )}
             >
-              Sem {s}
+              {t('kelasSection.rencana.semBtn', { n: s })}
             </button>
           ))}
         </div>
@@ -655,10 +659,10 @@ function KurikulumPickerDialog({
 
       <div className="mt-3 max-h-[55vh] overflow-y-auto rounded-md border border-slate-200">
         {isPending ? (
-          <p className="px-4 py-6 text-center text-sm text-slate-500">Memuat materi…</p>
+          <p className="px-4 py-6 text-center text-sm text-slate-500">{t('kelasSection.rencana.loadingMateri')}</p>
         ) : grouped.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-slate-500">
-            Tidak ada materi yang cocok untuk tingkat dan semester ini.
+            {t('kelasSection.rencana.noMatchSemester')}
           </p>
         ) : (
           grouped.map((g) => {
@@ -699,13 +703,17 @@ function KurikulumPickerDialog({
       </div>
 
       <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3">
-        <span className="text-xs text-slate-500">{picked.size} dipilih</span>
+        <span className="text-xs text-slate-500">{t('kelasSection.rencana.pickedCount', { count: picked.size })}</span>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Batal
+            {t('common.cancel')}
           </Button>
           <Button onClick={() => onPick(Array.from(picked))} disabled={pending || picked.size === 0}>
-            {pending ? 'Menambahkan…' : `Tambah ${picked.size > 0 ? `(${picked.size})` : ''}`}
+            {pending
+              ? t('kelasSection.rencana.adding')
+              : picked.size > 0
+                ? t('kelasSection.rencana.addCount', { count: picked.size })
+                : t('kelasSection.rencana.add')}
           </Button>
         </div>
       </div>

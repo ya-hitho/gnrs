@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ChevronRight, Plus, X } from 'lucide-react'
 
 import {
@@ -37,12 +38,6 @@ import { useToast } from '@/lib/toast'
  * vs already-planned/done in this semester) to avoid a backend endpoint.
  */
 
-const BULAN = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-]
-const BULAN_PENDEK = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des']
-
 const TEMA_ORDER = ['ALIM', 'FAQIH', 'AKHLAQUL KARIMAH', 'KEMANDIRIAN']
 const TEMA_LABEL: Record<string, string> = {
   ALIM: '🕌 Alim',
@@ -68,6 +63,15 @@ export function KelasRencanaSection() {
   const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
   const toast = useToast()
+  const { t, i18n } = useTranslation()
+  const BULAN = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(i18n.language, { month: 'long' })
+    return Array.from({ length: 12 }, (_, i) => fmt.format(new Date(2000, i, 1)))
+  }, [i18n.language])
+  const BULAN_PENDEK = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(i18n.language, { month: 'short' })
+    return Array.from({ length: 12 }, (_, i) => fmt.format(new Date(2000, i, 1)))
+  }, [i18n.language])
 
   const now = new Date()
   const [kelasId, setKelasId] = useState('')
@@ -161,12 +165,12 @@ export function KelasRencanaSection() {
       return addRencanaItems(id, ids)
     },
     onSuccess: () => {
-      toast('Ditambahkan ke rencana', 'success')
+      toast(t('kelasSection.rencana.addedToRencana'), 'success')
       qc.invalidateQueries({ queryKey: ['rencana', kelasId, tahun, bulan] })
       qc.invalidateQueries({ queryKey: ['rencana-full'] })
       setPicking(false)
     },
-    onError: (e) => toast(e instanceof ApiError ? e.message : 'Gagal menambah materi', 'error'),
+    onError: (e) => toast(e instanceof ApiError ? e.message : t('kelasSection.rencana.addFailed'), 'error'),
   })
 
   const addLibMut = useMutation({
@@ -180,12 +184,12 @@ export function KelasRencanaSection() {
       return addRencanaLibraryItem(id, input)
     },
     onSuccess: () => {
-      toast('Library ditambahkan', 'success')
+      toast(t('kelasSection.rencana.libraryAdded'), 'success')
       qc.invalidateQueries({ queryKey: ['rencana', kelasId, tahun, bulan] })
       qc.invalidateQueries({ queryKey: ['rencana-full'] })
       setPickingLibrary(false)
     },
-    onError: (e) => toast(e instanceof ApiError ? e.message : 'Gagal menambah library', 'error'),
+    onError: (e) => toast(e instanceof ApiError ? e.message : t('kelasSection.rencana.libraryAddFailed'), 'error'),
   })
   const toggleMut = useMutation({
     mutationFn: ({ itemId, selesai }: { itemId: string; selesai: boolean }) =>
@@ -242,27 +246,27 @@ export function KelasRencanaSection() {
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1" style={{ minWidth: 160 }}>
             <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Lingkup
+              {t('kelasSection.rencana.lingkup')}
             </label>
             <select
               value={kelasMode}
               onChange={(e) => setKelasMode(e.target.value as 'all' | 'mine')}
               className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
             >
-              <option value="all">Semua kelas</option>
-              <option value="mine">Kelas saya</option>
+              <option value="all">{t('kelasSection.rencana.allKelas')}</option>
+              <option value="mine">{t('kelasSection.rencana.myKelas')}</option>
             </select>
           </div>
           <div className="flex flex-1 flex-col gap-1" style={{ minWidth: 220 }}>
             <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Kelas
+              {t('kelasSection.rencana.kelas')}
             </label>
             <select
               value={kelasId}
               onChange={(e) => setKelasId(e.target.value)}
               className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
             >
-              <option value="">— pilih —</option>
+              <option value="">{t('kelasSection.rencana.kelasPrompt')}</option>
               {visibleKelasList.map((k) => (
                 <option key={k.id} value={k.id}>
                   {k.nama} — {k.tingkat}
@@ -272,7 +276,7 @@ export function KelasRencanaSection() {
           </div>
           <div className="flex flex-col gap-1" style={{ width: 120 }}>
             <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Tahun
+              {t('kelasSection.rencana.tahun')}
             </label>
             <Input
               type="number"
@@ -284,7 +288,7 @@ export function KelasRencanaSection() {
           </div>
           <div className="flex flex-col gap-1" style={{ minWidth: 160 }}>
             <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Bulan
+              {t('kelasSection.rencana.bulan')}
             </label>
             <select
               value={bulan}
@@ -301,10 +305,10 @@ export function KelasRencanaSection() {
           {isAdmin && selKelas ? (
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => setPicking(true)}>
-                <Plus size={16} className="mr-1" /> Dari Kurikulum
+                <Plus size={16} className="mr-1" /> {t('kelasSection.rencana.fromKurikulum')}
               </Button>
               <Button variant="secondary" onClick={() => setPickingLibrary(true)}>
-                <Plus size={16} className="mr-1" /> Library
+                <Plus size={16} className="mr-1" /> {t('kelasSection.rencana.library')}
               </Button>
             </div>
           ) : null}

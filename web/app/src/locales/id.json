@@ -125,6 +125,9 @@
     "searchPh": "Cari nama atau panggilan",
     "allStatus": "Semua status",
     "allKelompok": "Semua kelompok",
+    "allGender": "Semua jenis kelamin",
+    "genderMale": "Laki-laki",
+    "genderFemale": "Perempuan",
     "statusActive": "Aktif",
     "statusLeft": "Keluar",
     "empty": "Belum ada data Generus.",
@@ -139,7 +142,8 @@
       "age": "Usia",
       "level": "Jenjang",
       "kelompok": "Kelompok",
-      "status": "Status"
+      "status": "Status",
+      "createdAt": "Ditambahkan"
     },
     "ageYears": "{{count}} tahun",
     "ageShort": "{{count}}th",

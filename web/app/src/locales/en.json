@@ -125,6 +125,9 @@
     "searchPh": "Search name or nickname",
     "allStatus": "All statuses",
     "allKelompok": "All groups",
+    "allGender": "All genders",
+    "genderMale": "Male",
+    "genderFemale": "Female",
     "statusActive": "Active",
     "statusLeft": "Left",
     "empty": "No students yet.",
@@ -139,7 +142,8 @@
       "age": "Age",
       "level": "Level",
       "kelompok": "Group",
-      "status": "Status"
+      "status": "Status",
+      "createdAt": "Added"
     },
     "ageYears": "{{count}} years",
     "ageShort": "{{count}}y",

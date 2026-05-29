@@ -198,6 +198,9 @@
     "viewList": "List",
     "searchPh": "Search name or nickname",
     "allStatus": "All statuses",
+    "allGender": "All genders",
+    "genderMale": "Male",
+    "genderFemale": "Female",
     "statusActive": "Active",
     "statusRetired": "Retired",
     "empty": "No teachers yet.",
@@ -210,7 +213,8 @@
       "nickname": "Nickname",
       "kelompok": "Group",
       "daerah": "Region",
-      "status": "Status"
+      "status": "Status",
+      "createdAt": "Added"
     },
     "row": {
       "name": "Teacher name",

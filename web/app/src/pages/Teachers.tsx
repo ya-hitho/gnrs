@@ -11,7 +11,14 @@ import {
   listTeachers,
   updateTeacher,
 } from '@/api/teachers'
-import type { Teacher, TeacherInput } from '@/api/types'
+import {
+  SORT_COLUMNS,
+  type Gender,
+  type SortColumn,
+  type SortDir,
+  type Teacher,
+  type TeacherInput,
+} from '@/api/types'
 import { ApiError } from '@/api/client'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
@@ -22,6 +29,7 @@ import { Dialog } from '@/components/Dialog'
 import { PhotoUploader } from '@/components/PhotoUploader'
 import { TeacherForm } from '@/components/TeacherForm'
 import { PageShell } from '@/components/PageShell'
+import { SortableTh } from '@/components/SortableTh'
 
 const PAGE_SIZE = 20
 
@@ -34,6 +42,16 @@ export function TeachersPage() {
   const q = params.get('q') ?? ''
   const statusParam = params.get('status')
   const status = statusParam === 'active' || statusParam === 'retired' ? statusParam : undefined
+  const genderParam = params.get('gender')
+  const gender: Gender | undefined =
+    genderParam === 'male' || genderParam === 'female' ? genderParam : undefined
+  const sortParam = params.get('sort')
+  const sort = (SORT_COLUMNS as readonly string[]).includes(sortParam ?? '')
+    ? (sortParam as SortColumn)
+    : undefined
+  const dirParam = params.get('dir')
+  const dir: SortDir | undefined =
+    dirParam === 'asc' || dirParam === 'desc' ? dirParam : undefined
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
 
   const { user } = useAuth()
@@ -57,9 +75,17 @@ export function TeachersPage() {
   }, [viewMode])
 
   const { data, isPending } = useQuery({
-    queryKey: ['teachers', { q, status, page }],
+    queryKey: ['teachers', { q, status, gender, sort, dir, page }],
     queryFn: () =>
-      listTeachers({ q, status, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+      listTeachers({
+        q,
+        status,
+        gender,
+        sort,
+        dir,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      }),
   })
 
   const qc = useQueryClient()
@@ -99,12 +125,29 @@ export function TeachersPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const updateSearch = (next: { q?: string; status?: string; page?: number }) => {
+  const updateSearch = (next: {
+    q?: string
+    status?: string
+    gender?: string
+    sort?: string
+    dir?: string
+    page?: number
+  }) => {
     const sp = new URLSearchParams()
     if (next.q) sp.set('q', next.q)
     if (next.status) sp.set('status', next.status)
+    if (next.gender) sp.set('gender', next.gender)
+    // Only persist a non-default sort (default = name ASC).
+    if (next.sort && !(next.sort === 'name' && (next.dir ?? 'asc') === 'asc')) {
+      sp.set('sort', next.sort)
+      if (next.dir && next.dir !== 'asc') sp.set('dir', next.dir)
+    }
     if (next.page && next.page > 1) sp.set('page', String(next.page))
     navigate({ pathname: '/teachers', search: sp.toString() ? `?${sp.toString()}` : '' })
+  }
+
+  const handleSort = (column: SortColumn, nextDir: SortDir) => {
+    updateSearch({ q, status, gender, sort: column, dir: nextDir, page: 1 })
   }
 
   const header = (
@@ -162,6 +205,9 @@ export function TeachersPage() {
           updateSearch({
             q: String(fd.get('q') ?? '') || undefined,
             status: String(fd.get('status') ?? '') || undefined,
+            gender: String(fd.get('gender') ?? '') || undefined,
+            sort,
+            dir,
             page: 1,
           })
         }}
@@ -181,6 +227,15 @@ export function TeachersPage() {
           <option value="">{t('teachers.allStatus')}</option>
           <option value="active">{t('teachers.statusActive')}</option>
           <option value="retired">{t('teachers.statusRetired')}</option>
+        </select>
+        <select
+          name="gender"
+          defaultValue={gender ?? ''}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        >
+          <option value="">{t('teachers.allGender')}</option>
+          <option value="male">{t('teachers.genderMale')}</option>
+          <option value="female">{t('teachers.genderFemale')}</option>
         </select>
         <Button type="submit" variant="secondary" size="md">
           {t('common.apply')}
@@ -218,18 +273,32 @@ export function TeachersPage() {
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-2 w-12"></th>
-              <th className="px-4 py-2">{t('teachers.cols.name')}</th>
+              <SortableTh
+                column="name"
+                label={t('teachers.cols.name')}
+                activeColumn={sort}
+                activeDir={dir}
+                onSort={handleSort}
+              />
               <th className="hidden px-4 py-2 sm:table-cell">{t('teachers.cols.nickname')}</th>
               <th className="hidden px-4 py-2 md:table-cell">{t('teachers.cols.kelompok')}</th>
               <th className="hidden px-4 py-2 md:table-cell">{t('teachers.cols.daerah')}</th>
               <th className="px-4 py-2">{t('teachers.cols.status')}</th>
+              <SortableTh
+                column="created_at"
+                label={t('teachers.cols.createdAt')}
+                activeColumn={sort}
+                activeDir={dir}
+                onSort={handleSort}
+                className="hidden lg:table-cell"
+              />
               {isAdmin ? <th className="px-4 py-2 text-right">{t('common.actions')}</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
                   {t('common.loading')}
                 </td>
               </tr>
@@ -250,6 +319,9 @@ export function TeachersPage() {
                   <td className="px-4 py-2">
                     <StatusPill status={tch.status} />
                   </td>
+                  <td className="hidden px-4 py-2 lg:table-cell">
+                    {new Date(tch.createdAt).toLocaleDateString()}
+                  </td>
                   {isAdmin ? (
                     <td className="px-4 py-2 text-right">
                       <RowActions
@@ -263,7 +335,7 @@ export function TeachersPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
                   {t('teachers.empty')}
                 </td>
               </tr>
@@ -280,7 +352,7 @@ export function TeachersPage() {
             variant="secondary"
             size="sm"
             disabled={page <= 1}
-            onClick={() => updateSearch({ q, status, page: Math.max(1, page - 1) })}
+            onClick={() => updateSearch({ q, status, gender, sort, dir, page: Math.max(1, page - 1) })}
           >
             {t('common.previous')}
           </Button>
@@ -288,7 +360,7 @@ export function TeachersPage() {
             variant="secondary"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() => updateSearch({ q, status, page: Math.min(totalPages, page + 1) })}
+            onClick={() => updateSearch({ q, status, gender, sort, dir, page: Math.min(totalPages, page + 1) })}
           >
             {t('common.next')}
           </Button>

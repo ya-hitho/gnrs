@@ -198,6 +198,9 @@
     "viewList": "Daftar",
     "searchPh": "Cari nama atau panggilan",
     "allStatus": "Semua status",
+    "allGender": "Semua jenis kelamin",
+    "genderMale": "Laki-laki",
+    "genderFemale": "Perempuan",
     "statusActive": "Aktif",
     "statusRetired": "Purna",
     "empty": "Belum ada data Pengajar.",
@@ -210,7 +213,8 @@
       "nickname": "Panggilan",
       "kelompok": "Kelompok",
       "daerah": "Daerah",
-      "status": "Status"
+      "status": "Status",
+      "createdAt": "Ditambahkan"
     },
     "row": {
       "name": "Nama Pengajar",

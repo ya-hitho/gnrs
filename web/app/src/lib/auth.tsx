@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, ApiError, getToken, setToken } from './api'
+import { api, isAuthError, getToken, setToken, setApiBase } from './api'
 
 // Role union accepts both GNRS roles ('admin' | 'staff') and sitrac-v3 roles
 // ('pengurus' | 'guru' | 'ortu' | 'murid'), so components from either project
@@ -72,11 +72,12 @@ const AuthCtx = createContext<AuthCtxShape | null>(null)
 
 async function fetchMe(): Promise<User | null> {
   try {
-    // GNRS backend returns the User object directly.
-    const u = await api.get<User>('/auth/me')
+    // GNRS backend returns the user augmented with { apiBase }.
+    const u = await api.get<User & { apiBase?: string }>('/auth/me')
+    if (u?.apiBase) setApiBase(u.apiBase)
     return u ?? null
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) return null
+    if (isAuthError(err)) return null
     throw err
   }
 }
@@ -102,11 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (identifier: string, password: string) => {
-      // GNRS backend endpoint: POST /api/auth/login → User (sets httpOnly cookie).
+      // GNRS backend: POST /api/auth/login → User & { apiBase } (sets httpOnly cookie).
       // sitrac-v3 backend returns { token, user } — handle both shapes.
       const res = await api.post<unknown>('/auth/login', { identifier, password, username: identifier })
       const token = (res as any)?.token as string | undefined
-      const userResp = ((res as any)?.user ?? res) as User
+      const userResp = ((res as any)?.user ?? res) as User & { apiBase?: string }
+      const apiBase = (res as any)?.apiBase as string | undefined
+      if (apiBase) setApiBase(apiBase)
       if (token) setToken(token)
       qc.setQueryData(ME_QUERY_KEY, userResp)
       setUser(userResp)

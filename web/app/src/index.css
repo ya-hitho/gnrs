@@ -18,6 +18,78 @@
   }
 }
 
+@layer base {
+  /*
+   * iOS Safari paints native chrome on form controls (date/time spinners,
+   * select chevrons, button gradients, inset shadows on text fields,
+   * rounded corners on number spinners). The native styling overrides
+   * Tailwind's height utilities and gives forms (e.g. /absen) visibly
+   * inconsistent row heights. Strip appearance so our utility classes own
+   * the height, borders, and background.
+   *
+   * NOTE: unlike ppgus, this block deliberately does NOT set
+   * min-height:100dvh on html/body/#root — gnrs uses a fixed shell
+   * (height:100%; overflow:hidden, declared in the @layer base above).
+   */
+  input[type='text'],
+  input[type='search'],
+  input[type='tel'],
+  input[type='url'],
+  input[type='email'],
+  input[type='password'],
+  input[type='number'],
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'],
+  input[type='month'],
+  input[type='week'],
+  select,
+  textarea {
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: #fff;
+    /* Without background-clip: padding-box, iOS Safari paints the
+     * background under the border, leaking a 1px sliver of color. */
+    background-clip: padding-box;
+  }
+
+  /* Date/time inputs lay their value out as inline children inside a
+   * shadow root; iOS sets the host height from that content so h-* on
+   * the input is silently ignored. Forcing min-height brings them back
+   * in line with text inputs at the same Tailwind utility. */
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'],
+  input[type='month'],
+  input[type='week'] {
+    min-height: 2.5rem;
+  }
+
+  /* appearance:none strips the native chevron from <select>, so paint
+   * a chevron in the background. SVG is inlined so we don't add a
+   * network request. !important on padding-right wins against Tailwind's
+   * px-3 utility so long option values don't slide under the chevron. */
+  select {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1rem 1rem;
+    padding-right: 2rem !important;
+  }
+
+  /* iOS Safari renders a 16x16 spinner on type=number that pushes the
+   * value sideways; inputMode='numeric' already gives the keypad, so
+   * kill the spinners. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
 @layer utilities {
   .font-arab {
     font-family: var(--font-arab);

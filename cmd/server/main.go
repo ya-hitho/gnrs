@@ -392,7 +392,9 @@ func run() error {
 	})
 
 	if !cfg.Dev {
-		spa, err := web.Handler()
+		spa, err := web.Handler(web.Config{
+			APIBaseFor: apiBaseResolver(cfg.DynamicAPIPath),
+		})
 		if err != nil {
 			return fmt.Errorf("spa handler: %w", err)
 		}
@@ -422,6 +424,21 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// apiBaseResolver returns the function the SPA handler uses to compute the
+// per-request API base for index.html substitution. When the dynamic-path
+// feature is disabled it always reports the canonical /api prefix.
+func apiBaseResolver(enabled bool) func(r *http.Request) string {
+	if !enabled {
+		return func(*http.Request) string { return "/api" }
+	}
+	return func(r *http.Request) string {
+		if p, ok := auth.ReadAPIPathCookie(r); ok {
+			return "/" + p
+		}
+		return "/api"
+	}
 }
 
 func requestLogger(next http.Handler) http.Handler {

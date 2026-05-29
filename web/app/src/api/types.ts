@@ -16,6 +16,11 @@ export type User = {
   photoUrl?: string | null
 }
 
+export const SORT_COLUMNS = ['name', 'created_at'] as const
+export type SortColumn = (typeof SORT_COLUMNS)[number]
+export type SortDir = 'asc' | 'desc'
+export type Gender = 'male' | 'female'
+
 export const STUDENT_LEVELS = ['Caberawit', 'Pra Remaja', 'Remaja', 'Pra Nikah'] as const
 export type StudentLevel = (typeof STUDENT_LEVELS)[number]
 

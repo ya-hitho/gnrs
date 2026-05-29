@@ -184,6 +184,7 @@ func run() error {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(requestLogger)
+	r.Use(auth.DynamicAPIPath(cfg.DynamicAPIPath))
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})

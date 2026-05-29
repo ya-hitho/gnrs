@@ -19,6 +19,7 @@ type Config struct {
 	SeedAdminUsername string
 	SeedAdminPass     string
 	Dev             bool
+	DynamicAPIPath  bool
 }
 
 func Load() (Config, error) {
@@ -33,6 +34,7 @@ func Load() (Config, error) {
 		SeedAdminUsername: os.Getenv("SEED_ADMIN_USERNAME"),
 		SeedAdminPass:     os.Getenv("SEED_ADMIN_PASSWORD"),
 		Dev:            getBool("DEV", false),
+		DynamicAPIPath: getBool("DYNAMIC_API_PATH", true),
 	}
 
 	secret := os.Getenv("JWT_SECRET")

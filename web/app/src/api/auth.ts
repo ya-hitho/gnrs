@@ -1,10 +1,15 @@
-import { apiFetch } from './client'
-import type { User } from './types'
+import { apiFetch, setApiBase } from '@/lib/api'
+import type { AuthMe, User } from './types'
 
-export function login(identifier: string, password: string) {
-  return apiFetch<User>('/api/auth/login', {
+// login authenticates the user and pushes the server's apiBase into the
+// shared module state so subsequent calls use the dynamic prefix.
+export function login(identifier: string, password: string): Promise<AuthMe> {
+  return apiFetch<AuthMe>('/api/auth/login', {
     method: 'POST',
     body: { identifier, password },
+  }).then((res) => {
+    setApiBase(res.apiBase)
+    return res
   })
 }
 
@@ -12,8 +17,13 @@ export function logout() {
   return apiFetch<void>('/api/auth/logout', { method: 'POST' })
 }
 
-export function me() {
-  return apiFetch<User>('/api/auth/me')
+// me returns the current user and refreshes the shared apiBase so a reloaded
+// SPA recovers the dynamic prefix even when the meta-tag injection was missed.
+export function me(): Promise<AuthMe> {
+  return apiFetch<AuthMe>('/api/auth/me').then((res) => {
+    setApiBase(res.apiBase)
+    return res
+  })
 }
 
 export type UpdateMeInput = {

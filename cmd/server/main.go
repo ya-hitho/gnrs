@@ -190,7 +190,7 @@ func run() error {
 	})
 
 	r.Route("/api", func(api chi.Router) {
-		authH := handler.NewAuth(users, jwtSvc, cfg.CookieSecure)
+		authH := handler.NewAuth(users, jwtSvc, cfg.CookieSecure, cfg.DynamicAPIPath)
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
 

@@ -194,6 +194,16 @@ func run() error {
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
 
+		// Public, unauthenticated /absen endpoints — registered BEFORE the
+		// authMw group so they need no JWT. The POST is IP-rate-limited
+		// (10/min). NOTE: feature #3's dynamic-API gate must allowlist
+		// /api/public/ (owned by that plan).
+		publicAttH := handler.NewPublicAttendance(attendances, students, teachers)
+		publicAttRL := httpx.NewIPRateLimiter(10, time.Minute)
+		api.Get("/public/teachers", publicAttH.ListTeachers)
+		api.Get("/public/students", publicAttH.ListStudents)
+		api.With(publicAttRL.Middleware).Post("/public/attendances", publicAttH.Create)
+
 		authMw := auth.Middleware(jwtSvc)
 		api.Group(func(p chi.Router) {
 			p.Use(authMw)

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/Login'
+import { AbsenPage } from '@/pages/Absen'
 import { DashboardPage } from '@/pages/Dashboard'
 import { StudentsPage } from '@/pages/Students'
 import { StudentDetailPage } from '@/pages/StudentDetail'
@@ -45,6 +46,7 @@ export function App() {
         path="/login"
         element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
       />
+      <Route path="/absen" element={<AbsenPage />} />
       <Route
         path="/kelas/:kelasId/sesi/:sesiId/live"
         element={user ? <LiveSesiPage /> : <Navigate to="/login" replace />}

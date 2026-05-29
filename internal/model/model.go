@@ -39,8 +39,11 @@ type Attendance struct {
 	StudentName string           `json:"studentName"`
 	Status      AttendanceStatus `json:"status"`
 	Materi      *string          `json:"materi,omitempty"`
-	CreatedAt   time.Time        `json:"createdAt"`
-	UpdatedAt   time.Time        `json:"updatedAt"`
+	// SubmittedPhone is set only for rows created via the public /absen
+	// form (the submitter's normalized WhatsApp number). nil for admin rows.
+	SubmittedPhone *string   `json:"submittedPhone,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 type Role string

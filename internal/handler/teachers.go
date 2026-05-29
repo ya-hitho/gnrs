@@ -90,10 +90,29 @@ func (h *Teachers) List(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
 
+	gender := q.Get("gender")
+	if gender != "" && gender != "male" && gender != "female" {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "gender harus 'male' atau 'female'")
+		return
+	}
+	sort := q.Get("sort")
+	if sort != "" && sort != "name" && sort != "created_at" {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "sort harus 'name' atau 'created_at'")
+		return
+	}
+	dir := q.Get("dir")
+	if dir != "" && dir != "asc" && dir != "desc" {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "dir harus 'asc' atau 'desc'")
+		return
+	}
+
 	res, err := h.teachers.List(r.Context(), store.TeacherListParams{
 		Query:  q.Get("q"),
 		Status: q.Get("status"),
 		Daerah: q.Get("daerah"),
+		Gender: gender,
+		Sort:   sort,
+		Dir:    dir,
 		Limit:  limit,
 		Offset: offset,
 	})

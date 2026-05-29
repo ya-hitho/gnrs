@@ -24,12 +24,13 @@ type Attendances struct {
 func NewAttendances(db *sql.DB) *Attendances { return &Attendances{db: db} }
 
 type AttendanceInput struct {
-	Date        time.Time
-	DurationMin *int
-	TeacherID   string
-	StudentID   string
-	Status      model.AttendanceStatus
-	Materi      *string
+	Date           time.Time
+	DurationMin    *int
+	TeacherID      string
+	StudentID      string
+	Status         model.AttendanceStatus
+	Materi         *string
+	SubmittedPhone *string
 }
 
 type AttendanceListParams struct {
@@ -51,7 +52,7 @@ const selectAttendance = `
 SELECT a.id, a.date, a.duration_min,
        a.teacher_id, COALESCE(t.name, a.teacher_id),
        a.student_id, COALESCE(s.name, a.student_id),
-       a.status, a.materi, a.created_at, a.updated_at
+       a.status, a.materi, a.submitted_phone, a.created_at, a.updated_at
   FROM attendances a
   LEFT JOIN users t ON t.id = a.teacher_id
   LEFT JOIN users s ON s.id = a.student_id`
@@ -62,11 +63,11 @@ func (a *Attendances) Create(ctx context.Context, in AttendanceInput) (*model.At
 	_, err := a.db.ExecContext(ctx,
 		`INSERT INTO attendances
 		   (id, date, duration_min, teacher_id, student_id, status, materi,
-		    created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		    submitted_phone, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, in.Date.UTC(), nullableAttInt(in.DurationMin),
 		in.TeacherID, in.StudentID, string(in.Status), in.Materi,
-		now, now)
+		in.SubmittedPhone, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -374,11 +375,12 @@ func readAttendance(s scanner) (*model.Attendance, error) {
 	var a model.Attendance
 	var status string
 	var durationMin sql.NullInt64
+	var submittedPhone sql.NullString
 	if err := s.Scan(
 		&a.ID, &a.Date, &durationMin,
 		&a.TeacherID, &a.TeacherName,
 		&a.StudentID, &a.StudentName,
-		&status, &a.Materi, &a.CreatedAt, &a.UpdatedAt,
+		&status, &a.Materi, &submittedPhone, &a.CreatedAt, &a.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}
@@ -386,6 +388,10 @@ func readAttendance(s scanner) (*model.Attendance, error) {
 	if durationMin.Valid {
 		v := int(durationMin.Int64)
 		a.DurationMin = &v
+	}
+	if submittedPhone.Valid {
+		v := submittedPhone.String
+		a.SubmittedPhone = &v
 	}
 	return &a, nil
 }

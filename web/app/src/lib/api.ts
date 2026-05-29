@@ -5,7 +5,8 @@
 // - Also sends `Authorization: Bearer <token>` if a token has been stashed in
 //   localStorage. sitrac-v3 components rely on this pattern, so keeping it
 //   here lets them drop in unchanged.
-const API_BASE = (import.meta as any).env?.VITE_API_URL || '/api'
+import { resolveApiPath } from './apiBase'
+
 const TOKEN_KEY = 'gnrs_token'
 
 export function getToken(): string | null {
@@ -29,14 +30,32 @@ export class ApiError extends Error {
   }
 }
 
+// isAuthError reports whether err means "the SPA can't trust the current
+// session and should bounce the user to /login." Covers 401 (missing/invalid
+// JWT), 403 api_path_required (hit /api/* without a dynamic prefix — no session
+// yet), and 403 bad_api_path (auth_path cookie stale). Other 403s (role-gated
+// routes) keep their normal error semantics.
+export function isAuthError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false
+  if (err.status === 401) return true
+  if (err.status === 403 && (err.code === 'api_path_required' || err.code === 'bad_api_path')) {
+    return true
+  }
+  return false
+}
+
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, ...rest } = options
   const isFormData = body instanceof FormData
-  const url = path.startsWith('http') || path.startsWith('/api')
+  // Resolve every non-absolute path through the dynamic API base. Bare paths
+  // (e.g. "/auth/me") are first prefixed with /api so both calling
+  // conventions — apiFetch('/api/...') and api.get('/auth/me') — end up on the
+  // active per-session prefix. http(s) URLs are passed through untouched.
+  const url = path.startsWith('http')
     ? path
-    : `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`
+    : resolveApiPath(path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`)
 
   const reqHeaders = new Headers(headers as HeadersInit | undefined)
   reqHeaders.set('Accept', 'application/json')
@@ -97,3 +116,7 @@ export const api = {
 // Re-exporting from here keeps both worlds working.
 export const apiFetch = <T>(path: string, options: RequestOptions = {}) =>
   request<T>(path, options)
+
+// Re-export the dynamic-base setter so lib/auth.tsx and api/auth.ts can import
+// it from the canonical client alongside apiFetch/ApiError/isAuthError.
+export { setApiBase } from './apiBase'

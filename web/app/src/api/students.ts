@@ -1,5 +1,8 @@
 import { apiFetch } from './client'
 import type {
+  Gender,
+  SortColumn,
+  SortDir,
   Student,
   StudentInput,
   StudentKelompok,
@@ -11,6 +14,9 @@ export type ListQuery = {
   q?: string
   status?: StudentStatus
   kelompok?: StudentKelompok
+  gender?: Gender
+  sort?: SortColumn
+  dir?: SortDir
   limit?: number
   offset?: number
 }
@@ -20,6 +26,9 @@ export function listStudents(params: ListQuery = {}) {
   if (params.q) q.set('q', params.q)
   if (params.status) q.set('status', params.status)
   if (params.kelompok) q.set('kelompok', params.kelompok)
+  if (params.gender) q.set('gender', params.gender)
+  if (params.sort) q.set('sort', params.sort)
+  if (params.dir) q.set('dir', params.dir)
   if (params.limit !== undefined) q.set('limit', String(params.limit))
   if (params.offset !== undefined) q.set('offset', String(params.offset))
   const qs = q.toString()

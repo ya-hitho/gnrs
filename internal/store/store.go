@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
@@ -39,6 +40,25 @@ func Open(path string) (*sql.DB, error) {
 // scanner abstracts *sql.Row and *sql.Rows so we can share scan helpers.
 type scanner interface {
 	Scan(dest ...any) error
+}
+
+// orderClause builds a safe ORDER BY for list endpoints. Only the columns in
+// the allowlist may be sorted on; anything else falls back to name. The
+// direction is ASC unless an explicit "desc" is given. A trailing "id ASC"
+// makes the order deterministic for equal keys / pagination.
+func orderClause(sort, dir string) string {
+	col := "name"
+	switch strings.ToLower(strings.TrimSpace(sort)) {
+	case "name":
+		col = "name"
+	case "created_at":
+		col = "created_at"
+	}
+	direction := "ASC"
+	if strings.ToLower(strings.TrimSpace(dir)) == "desc" {
+		direction = "DESC"
+	}
+	return "ORDER BY " + col + " " + direction + ", id ASC"
 }
 
 func Migrate(db *sql.DB) error {

@@ -27,6 +27,9 @@
     "indonesian": "Bahasa Indonesia",
     "english": "English",
     "actions": "Aksi",
+    "sortAsc": "Urut naik",
+    "sortDesc": "Urut turun",
+    "sortBy": "Urutkan menurut {{col}}",
     "dataNotFound": "Data tidak ditemukan",
     "loadFailed": "Gagal memuat data.",
     "deleteConfirm": "Hapus {{name}}? Tindakan ini tidak dapat dibatalkan.",
@@ -122,6 +125,9 @@
     "searchPh": "Cari nama atau panggilan",
     "allStatus": "Semua status",
     "allKelompok": "Semua kelompok",
+    "allGender": "Semua jenis kelamin",
+    "genderMale": "Laki-laki",
+    "genderFemale": "Perempuan",
     "statusActive": "Aktif",
     "statusLeft": "Keluar",
     "empty": "Belum ada data Generus.",
@@ -136,7 +142,8 @@
       "age": "Usia",
       "level": "Jenjang",
       "kelompok": "Kelompok",
-      "status": "Status"
+      "status": "Status",
+      "createdAt": "Ditambahkan"
     },
     "ageYears": "{{count}} tahun",
     "ageShort": "{{count}}th",
@@ -191,6 +198,9 @@
     "viewList": "Daftar",
     "searchPh": "Cari nama atau panggilan",
     "allStatus": "Semua status",
+    "allGender": "Semua jenis kelamin",
+    "genderMale": "Laki-laki",
+    "genderFemale": "Perempuan",
     "statusActive": "Aktif",
     "statusRetired": "Purna",
     "empty": "Belum ada data Pengajar.",
@@ -203,7 +213,8 @@
       "nickname": "Panggilan",
       "kelompok": "Kelompok",
       "daerah": "Daerah",
-      "status": "Status"
+      "status": "Status",
+      "createdAt": "Ditambahkan"
     },
     "row": {
       "name": "Nama Pengajar",
@@ -1471,5 +1482,41 @@
       "materiList": "Daftar materi diajarkan (bullet)",
       "reviewSection": "Section 'Perlu Direview' (otomatis kosong jika tidak ada)"
     }
+  },
+  "absen": {
+    "heading": "Laporan Pengajian",
+    "note": "Isi data pengajian, lalu kirim laporan via WhatsApp.",
+    "fDate": "Tanggal",
+    "fDuration": "Durasi (menit)",
+    "fDurationPh": "mis. 75",
+    "fTeacher": "Pengajar",
+    "pickTeacher": "— pilih pengajar —",
+    "fStudent": "Generus",
+    "pickStudent": "— pilih generus —",
+    "fAttendance": "Kehadiran",
+    "fMateri": "Materi",
+    "fPhone": "Nomor WhatsApp",
+    "phoneHint": "Contoh: 081234567890. Laporan akan dibuka di WhatsApp Anda.",
+    "loadingLists": "Memuat daftar…",
+    "sending": "Mengirim…",
+    "submitBtn": "Kirim Laporan",
+    "successHeading": "Laporan tersimpan",
+    "successWaHint": "WhatsApp akan terbuka dengan laporan yang sudah terisi. Tekan Kirim.",
+    "sendWa": "Buka WhatsApp",
+    "savedToDb": "Laporan tersimpan.",
+    "sendAnother": "Kirim laporan lain",
+    "back": "Kembali ke beranda"
+  },
+  "absenStatus": {
+    "hadir": "Hadir",
+    "by_vn": "Via Voice Note",
+    "izin_guru": "Izin (Guru)",
+    "izin_murid": "Izin (Murid)"
+  },
+  "validation": {
+    "isoDate": "Format tanggal harus YYYY-MM-DD",
+    "requiredSelect": "Wajib dipilih",
+    "required": "Wajib diisi",
+    "invalidPhone": "Nomor WhatsApp tidak valid"
   }
 }

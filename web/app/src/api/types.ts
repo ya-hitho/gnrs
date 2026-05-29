@@ -16,6 +16,18 @@ export type User = {
   photoUrl?: string | null
 }
 
+// AuthMe is the server response shape for /api/auth/login and /api/auth/me.
+// It extends User with the API base for the current session (either the
+// canonical "/api" or a dynamic per-session prefix like "/a3f8d2").
+export type AuthMe = User & {
+  apiBase: string
+}
+
+export const SORT_COLUMNS = ['name', 'created_at'] as const
+export type SortColumn = (typeof SORT_COLUMNS)[number]
+export type SortDir = 'asc' | 'desc'
+export type Gender = 'male' | 'female'
+
 export const STUDENT_LEVELS = ['Caberawit', 'Pra Remaja', 'Remaja', 'Pra Nikah'] as const
 export type StudentLevel = (typeof STUDENT_LEVELS)[number]
 

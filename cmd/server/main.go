@@ -184,15 +184,26 @@ func run() error {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(requestLogger)
+	r.Use(auth.DynamicAPIPath(cfg.DynamicAPIPath))
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	r.Route("/api", func(api chi.Router) {
-		authH := handler.NewAuth(users, jwtSvc, cfg.CookieSecure)
+		authH := handler.NewAuth(users, jwtSvc, cfg.CookieSecure, cfg.DynamicAPIPath)
 		api.Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
+
+		// Public, unauthenticated /absen endpoints — registered BEFORE the
+		// authMw group so they need no JWT. The POST is IP-rate-limited
+		// (10/min). NOTE: feature #3's dynamic-API gate must allowlist
+		// /api/public/ (owned by that plan).
+		publicAttH := handler.NewPublicAttendance(attendances, students, teachers)
+		publicAttRL := httpx.NewIPRateLimiter(10, time.Minute)
+		api.Get("/public/teachers", publicAttH.ListTeachers)
+		api.Get("/public/students", publicAttH.ListStudents)
+		api.With(publicAttRL.Middleware).Post("/public/attendances", publicAttH.Create)
 
 		authMw := auth.Middleware(jwtSvc)
 		api.Group(func(p chi.Router) {
@@ -382,7 +393,9 @@ func run() error {
 	})
 
 	if !cfg.Dev {
-		spa, err := web.Handler()
+		spa, err := web.Handler(web.Config{
+			APIBaseFor: apiBaseResolver(cfg.DynamicAPIPath),
+		})
 		if err != nil {
 			return fmt.Errorf("spa handler: %w", err)
 		}
@@ -412,6 +425,21 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// apiBaseResolver returns the function the SPA handler uses to compute the
+// per-request API base for index.html substitution. When the dynamic-path
+// feature is disabled it always reports the canonical /api prefix.
+func apiBaseResolver(enabled bool) func(r *http.Request) string {
+	if !enabled {
+		return func(*http.Request) string { return "/api" }
+	}
+	return func(r *http.Request) string {
+		if p, ok := auth.ReadAPIPathCookie(r); ok {
+			return "/" + p
+		}
+		return "/api"
+	}
 }
 
 func requestLogger(next http.Handler) http.Handler {

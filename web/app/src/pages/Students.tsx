@@ -12,7 +12,11 @@ import {
   updateStudent,
 } from '@/api/students'
 import {
+  SORT_COLUMNS,
   STUDENT_KELOMPOKS,
+  type Gender,
+  type SortColumn,
+  type SortDir,
   type Student,
   type StudentInput,
   type StudentKelompok,
@@ -26,6 +30,7 @@ import { RowActions } from '@/components/RowActions'
 import { Dialog } from '@/components/Dialog'
 import { PhotoUploader } from '@/components/PhotoUploader'
 import { StudentForm } from '@/components/StudentForm'
+import { SortableTh } from '@/components/SortableTh'
 import { PageShell } from '@/components/PageShell'
 import { ageInYears } from '@/lib/age'
 
@@ -44,6 +49,16 @@ export function StudentsPage() {
   const kelompok = (STUDENT_KELOMPOKS as readonly string[]).includes(kelompokParam)
     ? (kelompokParam as StudentKelompok)
     : undefined
+  const genderParam = params.get('gender')
+  const gender: Gender | undefined =
+    genderParam === 'male' || genderParam === 'female' ? genderParam : undefined
+  const sortParam = params.get('sort')
+  const sort = (SORT_COLUMNS as readonly string[]).includes(sortParam ?? '')
+    ? (sortParam as SortColumn)
+    : undefined
+  const dirParam = params.get('dir')
+  const dir: SortDir | undefined =
+    dirParam === 'asc' || dirParam === 'desc' ? dirParam : undefined
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1)
 
   const { user } = useAuth()
@@ -69,9 +84,18 @@ export function StudentsPage() {
   }, [viewMode])
 
   const { data, isPending } = useQuery({
-    queryKey: ['students', { q, status, kelompok, page }],
+    queryKey: ['students', { q, status, kelompok, gender, sort, dir, page }],
     queryFn: () =>
-      listStudents({ q, status, kelompok, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+      listStudents({
+        q,
+        status,
+        kelompok,
+        gender,
+        sort,
+        dir,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      }),
   })
 
   const qc = useQueryClient()
@@ -111,13 +135,31 @@ export function StudentsPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const updateSearch = (next: { q?: string; status?: string; kelompok?: string; page?: number }) => {
+  const updateSearch = (next: {
+    q?: string
+    status?: string
+    kelompok?: string
+    gender?: string
+    sort?: string
+    dir?: string
+    page?: number
+  }) => {
     const sp = new URLSearchParams()
     if (next.q) sp.set('q', next.q)
     if (next.status) sp.set('status', next.status)
     if (next.kelompok) sp.set('kelompok', next.kelompok)
+    if (next.gender) sp.set('gender', next.gender)
+    // Only persist a non-default sort (default = name ASC).
+    if (next.sort && !(next.sort === 'name' && (next.dir ?? 'asc') === 'asc')) {
+      sp.set('sort', next.sort)
+      if (next.dir && next.dir !== 'asc') sp.set('dir', next.dir)
+    }
     if (next.page && next.page > 1) sp.set('page', String(next.page))
     navigate({ pathname: '/students', search: sp.toString() ? `?${sp.toString()}` : '' })
+  }
+
+  const handleSort = (column: SortColumn, nextDir: SortDir) => {
+    updateSearch({ q, status, kelompok, gender, sort: column, dir: nextDir, page: 1 })
   }
 
   const header = (
@@ -176,6 +218,9 @@ export function StudentsPage() {
             q: String(fd.get('q') ?? '') || undefined,
             status: String(fd.get('status') ?? '') || undefined,
             kelompok: String(fd.get('kelompok') ?? '') || undefined,
+            gender: String(fd.get('gender') ?? '') || undefined,
+            sort,
+            dir,
             page: 1,
           })
         }}
@@ -207,6 +252,15 @@ export function StudentsPage() {
               {k}
             </option>
           ))}
+        </select>
+        <select
+          name="gender"
+          defaultValue={gender ?? ''}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        >
+          <option value="">{t('students.allGender')}</option>
+          <option value="male">{t('students.genderMale')}</option>
+          <option value="female">{t('students.genderFemale')}</option>
         </select>
         <Button type="submit" variant="secondary" size="md">
           {t('common.apply')}
@@ -244,20 +298,34 @@ export function StudentsPage() {
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-2 w-12"></th>
-              <th className="px-4 py-2">{t('students.cols.name')}</th>
+              <SortableTh
+                column="name"
+                label={t('students.cols.name')}
+                activeColumn={sort}
+                activeDir={dir}
+                onSort={handleSort}
+              />
               <th className="hidden px-4 py-2 sm:table-cell">{t('students.cols.nickname')}</th>
               <th className="hidden px-4 py-2 sm:table-cell">{t('students.cols.gender')}</th>
               <th className="hidden px-4 py-2 sm:table-cell">{t('students.cols.age')}</th>
               <th className="hidden px-4 py-2 md:table-cell">{t('students.cols.level')}</th>
               <th className="hidden px-4 py-2 md:table-cell">{t('students.cols.kelompok')}</th>
               <th className="px-4 py-2">{t('students.cols.status')}</th>
+              <SortableTh
+                column="created_at"
+                label={t('students.cols.createdAt')}
+                activeColumn={sort}
+                activeDir={dir}
+                onSort={handleSort}
+                className="hidden lg:table-cell"
+              />
               {isAdmin ? <th className="px-4 py-2 text-right">{t('common.actions')}</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isPending ? (
               <tr>
-                <td colSpan={isAdmin ? 9 : 8} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 10 : 9} className="px-4 py-6 text-center text-slate-500">
                   {t('common.loading')}
                 </td>
               </tr>
@@ -287,6 +355,9 @@ export function StudentsPage() {
                   <td className="px-4 py-2">
                     <StatusPill status={s.status} />
                   </td>
+                  <td className="hidden px-4 py-2 lg:table-cell">
+                    {new Date(s.createdAt).toLocaleDateString()}
+                  </td>
                   {isAdmin ? (
                     <td className="px-4 py-2 text-right">
                       <RowActions
@@ -300,7 +371,7 @@ export function StudentsPage() {
               ))
             ) : (
               <tr>
-                <td colSpan={isAdmin ? 9 : 8} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={isAdmin ? 10 : 9} className="px-4 py-6 text-center text-slate-500">
                   {t('students.empty')}
                 </td>
               </tr>
@@ -317,7 +388,9 @@ export function StudentsPage() {
             variant="secondary"
             size="sm"
             disabled={page <= 1}
-            onClick={() => updateSearch({ q, status, kelompok, page: Math.max(1, page - 1) })}
+            onClick={() =>
+              updateSearch({ q, status, kelompok, gender, sort, dir, page: Math.max(1, page - 1) })
+            }
           >
             {t('common.previous')}
           </Button>
@@ -325,7 +398,17 @@ export function StudentsPage() {
             variant="secondary"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() => updateSearch({ q, status, kelompok, page: Math.min(totalPages, page + 1) })}
+            onClick={() =>
+              updateSearch({
+                q,
+                status,
+                kelompok,
+                gender,
+                sort,
+                dir,
+                page: Math.min(totalPages, page + 1),
+              })
+            }
           >
             {t('common.next')}
           </Button>

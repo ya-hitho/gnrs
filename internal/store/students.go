@@ -48,6 +48,9 @@ type ListParams struct {
 	Query    string
 	Status   string
 	Kelompok string
+	Gender   string // "", "male", or "female"
+	Sort     string // "", "name", or "created_at"
+	Dir      string // "", "asc", or "desc"
 	Limit    int
 	Offset   int
 }
@@ -172,6 +175,10 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 		clauses = append(clauses, "kelompok = ?")
 		args = append(args, p.Kelompok)
 	}
+	if p.Gender != "" {
+		clauses = append(clauses, "gender = ?")
+		args = append(args, p.Gender)
+	}
 	where := " WHERE " + strings.Join(clauses, " AND ")
 
 	var total int
@@ -181,7 +188,7 @@ func (s *Students) List(ctx context.Context, p ListParams) (*ListResult, error) 
 
 	listArgs := append(append([]any{}, args...), p.Limit, p.Offset)
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT `+selectStudentCols+` FROM users`+where+` ORDER BY name ASC LIMIT ? OFFSET ?`,
+		`SELECT `+selectStudentCols+` FROM users`+where+` `+orderClause(p.Sort, p.Dir)+` LIMIT ? OFFSET ?`,
 		listArgs...)
 	if err != nil {
 		return nil, err

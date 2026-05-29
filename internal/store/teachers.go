@@ -45,6 +45,9 @@ type TeacherListParams struct {
 	Query  string
 	Status string
 	Daerah string
+	Gender string // "", "male", or "female"
+	Sort   string // "", "name", or "created_at"
+	Dir    string // "", "asc", or "desc"
 	Limit  int
 	Offset int
 }
@@ -163,6 +166,10 @@ func (t *Teachers) List(ctx context.Context, p TeacherListParams) (*TeacherListR
 		clauses = append(clauses, "daerah = ?")
 		args = append(args, d)
 	}
+	if p.Gender != "" {
+		clauses = append(clauses, "gender = ?")
+		args = append(args, p.Gender)
+	}
 	where := " WHERE " + strings.Join(clauses, " AND ")
 
 	var total int
@@ -172,7 +179,7 @@ func (t *Teachers) List(ctx context.Context, p TeacherListParams) (*TeacherListR
 
 	listArgs := append(append([]any{}, args...), p.Limit, p.Offset)
 	rows, err := t.db.QueryContext(ctx,
-		`SELECT `+selectTeacherCols+` FROM users`+where+` ORDER BY name ASC LIMIT ? OFFSET ?`,
+		`SELECT `+selectTeacherCols+` FROM users`+where+` `+orderClause(p.Sort, p.Dir)+` LIMIT ? OFFSET ?`,
 		listArgs...)
 	if err != nil {
 		return nil, err

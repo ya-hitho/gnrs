@@ -125,6 +125,56 @@ func TestStudentsListSearchAndStatus(t *testing.T) {
 	}
 }
 
+func TestStudentsListGenderAndSort(t *testing.T) {
+	s := newTestDB(t)
+	ctx := context.Background()
+
+	// Two females (Alice, Bob) and two males (Carol, Dave).
+	for _, name := range []string{"Bob", "Alice"} {
+		in := sampleInput(name) // sampleInput uses gender "female"
+		if _, err := s.Create(ctx, in); err != nil {
+			t.Fatalf("seed female: %v", err)
+		}
+	}
+	for _, name := range []string{"Dave", "Carol"} {
+		in := sampleInput(name)
+		in.Gender = "male"
+		if _, err := s.Create(ctx, in); err != nil {
+			t.Fatalf("seed male: %v", err)
+		}
+	}
+
+	res, err := s.List(ctx, ListParams{Gender: "female"})
+	if err != nil {
+		t.Fatalf("list female: %v", err)
+	}
+	if res.Total != 2 {
+		t.Errorf("female total = %d, want 2", res.Total)
+	}
+	for _, it := range res.Items {
+		if it.Gender != "female" {
+			t.Errorf("got gender %q in female filter", it.Gender)
+		}
+	}
+
+	res, _ = s.List(ctx, ListParams{Gender: "male"})
+	if res.Total != 2 {
+		t.Errorf("male total = %d, want 2", res.Total)
+	}
+
+	// Sort by name DESC -> Dave, Carol, Bob, Alice.
+	res, _ = s.List(ctx, ListParams{Sort: "name", Dir: "desc"})
+	if got := []string{res.Items[0].Name, res.Items[3].Name}; got[0] != "Dave" || got[1] != "Alice" {
+		t.Errorf("name desc order = %v, want first Dave last Alice", got)
+	}
+
+	// Bad sort falls back to name ASC -> Alice first.
+	res, _ = s.List(ctx, ListParams{Sort: "bogus", Dir: ""})
+	if res.Items[0].Name != "Alice" {
+		t.Errorf("fallback first = %q, want Alice", res.Items[0].Name)
+	}
+}
+
 func TestStudentsCheckLevelEnum(t *testing.T) {
 	s := newTestDB(t)
 	bad := model.StudentLevel("Bogus")

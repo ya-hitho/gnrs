@@ -122,3 +122,56 @@ func TestTeachersListFilters(t *testing.T) {
 		t.Errorf("query total = %d, want 2 (Alice, Charlie)", res.Total)
 	}
 }
+
+func TestTeachersListGenderAndSort(t *testing.T) {
+	s := newTeachersDB(t)
+	ctx := context.Background()
+
+	male := "male"
+	female := "female"
+
+	// One male (Bob), one female (Alice), one with NULL gender (Zed).
+	bob := teacherInput("Bob", "Luwu Timur", model.TeacherActive)
+	bob.Gender = &male
+	alice := teacherInput("Alice", "Luwu Timur", model.TeacherActive)
+	alice.Gender = &female
+	zed := teacherInput("Zed", "Luwu Timur", model.TeacherActive)
+	zed.Gender = nil // NULL gender
+	for _, in := range []TeacherInput{bob, alice, zed} {
+		if _, err := s.Create(ctx, in); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+
+	// Gender filter excludes the NULL-gender row.
+	res, err := s.List(ctx, TeacherListParams{Gender: "male"})
+	if err != nil {
+		t.Fatalf("list male: %v", err)
+	}
+	if res.Total != 1 || res.Items[0].Name != "Bob" {
+		t.Errorf("male filter = %+v, want only Bob", res)
+	}
+
+	res, _ = s.List(ctx, TeacherListParams{Gender: "female"})
+	if res.Total != 1 || res.Items[0].Name != "Alice" {
+		t.Errorf("female filter = %+v, want only Alice", res)
+	}
+
+	// No gender filter: all three (incl. NULL) returned.
+	res, _ = s.List(ctx, TeacherListParams{})
+	if res.Total != 3 {
+		t.Errorf("unfiltered total = %d, want 3 (incl NULL gender)", res.Total)
+	}
+
+	// Sort name DESC -> Zed first, Alice last.
+	res, _ = s.List(ctx, TeacherListParams{Sort: "name", Dir: "desc"})
+	if res.Items[0].Name != "Zed" || res.Items[2].Name != "Alice" {
+		t.Errorf("name desc = [%s ... %s], want [Zed ... Alice]", res.Items[0].Name, res.Items[2].Name)
+	}
+
+	// Bad sort falls back to name ASC -> Alice first.
+	res, _ = s.List(ctx, TeacherListParams{Sort: "nope"})
+	if res.Items[0].Name != "Alice" {
+		t.Errorf("fallback first = %q, want Alice", res.Items[0].Name)
+	}
+}

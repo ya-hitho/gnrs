@@ -1482,5 +1482,41 @@
       "materiList": "List of materials covered (bullet)",
       "reviewSection": "'Needs review' section (empty when none)"
     }
+  },
+  "absen": {
+    "heading": "Teaching Report",
+    "note": "Fill in the session details, then send the report via WhatsApp.",
+    "fDate": "Date",
+    "fDuration": "Duration (minutes)",
+    "fDurationPh": "e.g. 75",
+    "fTeacher": "Teacher",
+    "pickTeacher": "— select a teacher —",
+    "fStudent": "Student",
+    "pickStudent": "— select a student —",
+    "fAttendance": "Attendance",
+    "fMateri": "Material",
+    "fPhone": "WhatsApp number",
+    "phoneHint": "Example: 081234567890. The report will open in your WhatsApp.",
+    "loadingLists": "Loading lists…",
+    "sending": "Sending…",
+    "submitBtn": "Send Report",
+    "successHeading": "Report saved",
+    "successWaHint": "WhatsApp will open with the report pre-filled. Tap Send.",
+    "sendWa": "Open WhatsApp",
+    "savedToDb": "Report saved.",
+    "sendAnother": "Send another report",
+    "back": "Back to home"
+  },
+  "absenStatus": {
+    "hadir": "Present",
+    "by_vn": "Via Voice Note",
+    "izin_guru": "Excused (Teacher)",
+    "izin_murid": "Excused (Student)"
+  },
+  "validation": {
+    "isoDate": "Date must be YYYY-MM-DD",
+    "requiredSelect": "Selection required",
+    "required": "Required",
+    "invalidPhone": "Invalid WhatsApp number"
   }
 }

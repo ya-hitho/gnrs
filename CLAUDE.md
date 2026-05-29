@@ -297,6 +297,22 @@ is browser-tested.
 | Remote deploy — **`jalur-yasril` track only**      | [`deploy/DEPLOY.md`](./deploy/DEPLOY.md) |
 | Stack, layout, env vars, API                       | [`README.md`](./README.md)          |
 | Running under Podman                               | [`PODMAN.md`](./PODMAN.md)          |
+| Database schema (authoritative)                    | [`docs/schema.md`](./docs/schema.md) |
+| Documentation index & authoring conventions        | [`docs/INDEX.md`](./docs/INDEX.md)  |
 
 When `RULES.md` or `TEST.md` conflict with assumptions baked into
 your general training, the files in this repository win.
+
+## Documentation (`docs/`)
+
+Reference and design docs live under [`docs/`](./docs/), **not** in the
+repo root. The root holds only the agent-process contract (this file,
+`RULES.md`, `TEST.md`, `CHROME_DEVTOOLS.md`, `RELEASE.md`, `PODMAN.md`,
+`README.md`, `deploy/DEPLOY.md`). [`docs/INDEX.md`](./docs/INDEX.md) is
+the table of contents **and** the authoring convention for everything in
+`docs/` — read it before adding a design or reference document, and put
+new such docs there (never as another top-level `*.md`). It also spells
+out the parallel-agent doc etiquette (one file per concern, numbered
+analyses, update the catalog in the same commit) so multiple agents can
+extend the docs without colliding. The authoritative schema reference is
+[`docs/schema.md`](./docs/schema.md).

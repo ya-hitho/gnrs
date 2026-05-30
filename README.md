@@ -46,12 +46,41 @@ web/
 ```bash
 cp .env.example .env          # edit JWT_SECRET (≥ 32 chars), seed admin
 docker compose up --build
-# → http://localhost:8080
+# → http://localhost:8080      (the host port follows PORT in .env)
 ```
 
 The compose stack runs a `postgres:17` service (data in the `gnrs-db`
-volume); uploaded photos persist in the `gnrs-data` volume. `DATABASE_URL`
-defaults to the bundled `db` service.
+volume); uploaded photos persist in the `gnrs-data` volume. The app reaches
+the bundled `db` service over the compose network.
+
+### As a podman pod
+
+GNRS also runs as a single **podman pod** (postgres + app share one network
+namespace, so the app reaches postgres at `localhost:5432`). For local feature
+testing:
+
+```bash
+deploy/dev-pod.sh          # build + run pod gnrs-dev-<branch> on 127.0.0.1:18300
+deploy/dev-pod.sh --down   # tear it down
+```
+
+Production is deployed as a pod too (postgres + app + a Cloudflare-tunnel
+sidecar) via `deploy/deploy.sh` — see [`deploy/DEPLOY.md`](./deploy/DEPLOY.md)
+and [`PODMAN.md`](./PODMAN.md).
+
+### Public access via Cloudflare Tunnel
+
+Public access is **production-only** (the `jalur-yasril` deploy). An opt-in
+`cloudflared` sidecar joins the pod when `CLOUDFLARE_TUNNEL_TOKEN` is set:
+create a tunnel in the Cloudflare Zero Trust dashboard (_Networks → Tunnels →
+Create_), point its public hostname at `http://localhost:8080`, put the token
+in `.env`, set `COOKIE_SECURE=true`, and deploy. With compose:
+
+```bash
+docker compose --profile tunnel up -d
+```
+
+Leave `CLOUDFLARE_TUNNEL_TOKEN` empty (dev pods, gnrs-evan) to skip the tunnel.
 
 ## Quick start (local dev)
 
@@ -95,9 +124,12 @@ All runtime config is via env vars. See [`.env.example`](./.env.example).
 | `COOKIE_SECURE`        | no       | `false`            | Set `true` behind HTTPS                                   |
 | `DATABASE_URL`         | no       | `postgres://postgres:postgres@localhost:5432/gnrs?sslmode=disable` | PostgreSQL DSN |
 | `DATA_DIR`             | no       | `./data`           | Base dir for uploaded photos (`$DATA_DIR/photos`)         |
+| `POSTGRES_USER` / `_PASSWORD` / `_DB` | no | `postgres`/`postgres`/`gnrs` | Bundled postgres container creds (compose / pod)  |
+| `CLOUDFLARE_TUNNEL_TOKEN` | no    | —                  | Set to front public access via a Cloudflare Tunnel (prod only) |
 | `PORT`                 | no       | `8080`             | HTTP listen port                                          |
 | `DEV`                  | no       | `false`            | Skip serving the embedded SPA (Vite handles frontend)     |
 | `SEED_ADMIN_EMAIL`     | no       | —                  | First-boot admin (created only if `users` is empty)       |
+| `SEED_ADMIN_USERNAME`  | no       | —                  | First-boot admin username                                 |
 | `SEED_ADMIN_PASSWORD`  | no       | —                  | First-boot admin password                                 |
 
 ## API surface

@@ -1,9 +1,12 @@
 # Running GNRS with Podman
 
-The `Dockerfile` and `docker-compose.yml` are already Podman-compatible —
-**no project files were changed.** Podman builds the `Dockerfile` natively and
-`podman compose` reads `docker-compose.yml` as-is. This guide just covers the
-Podman-specific setup and commands.
+The `Dockerfile` and `docker-compose.yml` are Podman-compatible: Podman builds
+the `Dockerfile` natively and `podman compose` reads `docker-compose.yml`
+as-is. GNRS runs **all of its containers (postgres + app, + cloudflared in
+prod) inside one podman pod** — `deploy/dev-pod.sh` for local feature testing,
+`deploy/deploy.sh` for the production pod on the remote (see
+[`deploy/DEPLOY.md`](./deploy/DEPLOY.md)). This guide covers the Podman-specific
+setup and the pod/compose commands.
 
 **Verified on this machine:** Podman 5.8.2, `podman-machine-default`
 (WSL backend, running). `.env` is present and configured (host port `8300`).
@@ -42,6 +45,14 @@ podman compose logs -f           # follow logs
 Open **http://localhost:8300** (host port `8300` from `.env`, mapped to the
 container's `8080`).
 
+Public access (production-style) is an opt-in `tunnel` profile that adds a
+`cloudflared` sidecar — see [`deploy/DEPLOY.md`](./deploy/DEPLOY.md). With a
+`CLOUDFLARE_TUNNEL_TOKEN` in `.env`:
+
+```powershell
+podman compose --profile tunnel up --build -d
+```
+
 Stop / clean up:
 
 ```powershell
@@ -49,29 +60,43 @@ podman compose down              # stop; keep the gnrs-data / gnrs-db volumes
 podman compose down -v           # stop and delete the photo + PostgreSQL volumes
 ```
 
-## Or: run without a Compose provider
+## Run as a podman pod (the dev pod)
 
-The app now needs a PostgreSQL server, so plain Podman means two containers on
-a shared network:
+For feature testing, run everything in **one pod** so the app reaches postgres
+over `localhost` exactly like production. The helper script does the whole
+dance — build, pod, postgres, app, wait for health:
 
-```powershell
-podman network create gnrs-net
-podman volume create gnrs-db
-podman run -d --name gnrs-db --network gnrs-net `
-  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=gnrs `
-  -v gnrs-db:/var/lib/postgresql/data --restart=unless-stopped postgres:17
-
-podman build -t gnrs:latest .
-podman volume create gnrs-data
-podman run -d --name gnrs --network gnrs-net --env-file .env -p 8300:8300 `
-  -e DATABASE_URL="postgres://postgres:postgres@gnrs-db:5432/gnrs?sslmode=disable" `
-  -v gnrs-data:/app/data --restart=unless-stopped gnrs:latest
+```bash
+deploy/dev-pod.sh                 # build + (re)create pod gnrs-dev-<branch> on 127.0.0.1:18300
+deploy/dev-pod.sh --down          # stop + remove the pod, volumes, and image
+SLUG=myfeat PORT=18345 deploy/dev-pod.sh
 ```
 
-`--env-file .env` supplies `JWT_SECRET` and `PORT=8300`, so the server listens
-on `8300` inside the container — hence `-p 8300:8300`. `DATABASE_URL` points the
-app at the `gnrs-db` container by name over the shared network; `gnrs-data`
-holds uploaded photos. (Compose wires all of this up for you — prefer it.)
+It prints the URL (`http://127.0.0.1:18300`) and the seeded admin login. There
+is **no cloudflared** in the dev pod — public access is production-only.
+
+The raw `podman pod` commands the script runs, illustrated for branch slug
+`<slug>` (the script suffixes every resource with the slug, and also seeds the
+admin and waits for health — see `deploy/dev-pod.sh` for the exact, complete
+form):
+
+```bash
+podman build -t gnrs-dev-<slug>:latest .
+# only the app port is published; postgres 5432 stays private to the pod
+podman pod create --name gnrs-dev-<slug> -p 127.0.0.1:18300:8080
+podman run -d --pod gnrs-dev-<slug> --name gnrs-dev-<slug>-db \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=gnrs \
+  -v gnrs-db-dev-<slug>:/var/lib/postgresql/data docker.io/library/postgres:17
+podman run -d --pod gnrs-dev-<slug> --name gnrs-dev-<slug>-app \
+  -e JWT_SECRET=dev-local-secret-key-at-least-32-bytes-long \
+  -e DATABASE_URL="postgres://postgres:postgres@localhost:5432/gnrs?sslmode=disable" \
+  -e DATA_DIR=/app/data -e PORT=8080 \
+  -v gnrs-data-dev-<slug>:/app/data gnrs-dev-<slug>:latest
+```
+
+Pod members share one network namespace, so the app reaches postgres at
+`localhost:5432` and only the app's `8080` is published — postgres stays
+private to the pod.
 
 ## Notes
 

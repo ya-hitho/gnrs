@@ -5,9 +5,10 @@
 # Version control
 .git/
 
-# Secrets / local env — the remote keeps its own .env and .pgenv (see deploy.sh).
-# .pgenv holds the PostgreSQL password and MUST survive rsync --delete, or the
-# app would lose access to the existing database volume.
+# Secrets / local env — the remote keeps its own .env (see deploy.sh). It holds
+# JWT_SECRET, the generated POSTGRES_PASSWORD, and CLOUDFLARE_TUNNEL_TOKEN, and
+# MUST survive rsync --delete or the app loses access to the existing database
+# volume. (.pgenv is from an older deploy path; harmless if a remote still has one.)
 .env
 .env.local
 .env.*.local

@@ -114,7 +114,7 @@ export function Layout() {
   ].filter((it) => !it.adminOnly || user?.role === 'admin')
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden md:flex-row">
+    <div className="flex h-[100dvh] flex-col overflow-hidden md:h-screen md:flex-row">
       {/* Mobile: top header with brand on the left + user avatar dropdown
           on the right. Menu lives at the bottom (see <nav> below). */}
       <header

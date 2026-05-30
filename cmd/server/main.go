@@ -51,14 +51,14 @@ func runImportTeachers(args []string) error {
 	}
 	csvPath := args[0]
 
-	dbPath := os.Getenv("DATABASE_PATH")
-	if dbPath == "" {
-		dbPath = "./data/app.db"
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = config.DefaultDatabaseURL
 	}
 
-	db, err := store.Open(dbPath)
+	db, err := store.Open(dsn)
 	if err != nil {
-		return fmt.Errorf("open db at %s: %w", dbPath, err)
+		return fmt.Errorf("open db: %w", err)
 	}
 	defer db.Close()
 	if err := store.Migrate(db); err != nil {
@@ -95,7 +95,7 @@ func run() error {
 		return fmt.Errorf("create photos dir: %w", err)
 	}
 
-	db, err := store.Open(cfg.DatabasePath)
+	db, err := store.Open(cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}

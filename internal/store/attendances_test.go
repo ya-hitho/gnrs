@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,15 +10,7 @@ import (
 
 func newAttendanceTestDB(t *testing.T) (*Attendances, *Students, *Teachers) {
 	t.Helper()
-	dir := t.TempDir()
-	db, err := Open(filepath.Join(dir, "test.db"))
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := Migrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db := openTestDB(t)
 	return NewAttendances(db), NewStudents(db), NewTeachers(db)
 }
 

@@ -40,7 +40,7 @@ func SeedInstansiLogo(ctx context.Context, db *sql.DB) (int, error) {
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO settings (key, value) VALUES ('instansi_logo', ?)
 		 ON CONFLICT (key) DO UPDATE SET value = excluded.value,
-		   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+		   updated_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
 		dataURL,
 	); err != nil {
 		return 0, err

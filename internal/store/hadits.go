@@ -135,7 +135,7 @@ func (s *HaditsStore) UpdateKitab(ctx context.Context, slug string, in KitabInpu
 		`UPDATE hadits_kitab SET
 		   nama = ?, nama_arab = ?, deskripsi = ?, perawi = ?,
 		   urutan = ?, scope = ?, jumlah_halaman = ?,
-		   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		   updated_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 		 WHERE slug = ?`,
 		in.Nama, in.NamaArab, in.Deskripsi, in.Perawi,
 		in.Urutan, in.Scope, in.JumlahHalaman, slug,
@@ -183,7 +183,7 @@ func (s *HaditsStore) DeleteKitab(ctx context.Context, slug string) error {
 func (s *HaditsStore) UpdateKitabJumlahHalaman(ctx context.Context, slug string, jumlah int) error {
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE hadits_kitab SET jumlah_halaman = ?,
-		   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		   updated_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 		 WHERE slug = ?`,
 		jumlah, slug)
 	if err != nil {

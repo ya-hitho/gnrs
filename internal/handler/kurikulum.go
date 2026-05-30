@@ -285,14 +285,10 @@ func (h *Kurikulum) DeleteMateriAjar(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusNoContent, nil)
 }
 
-// isUniqueViolation does a best-effort detection of SQLite UNIQUE constraint
-// errors. mattn/go-sqlite3 returns errors whose Error() contains
-// "UNIQUE constraint failed".
+// isUniqueViolation detects PostgreSQL UNIQUE constraint violations
+// (SQLSTATE 23505) via the shared store helper.
 func isUniqueViolation(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "UNIQUE constraint failed")
+	return store.IsUniqueViolation(err)
 }
 
 // ---------------------------------------------------- Library refs / relations

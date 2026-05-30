@@ -303,7 +303,7 @@ func (s *KelasStore) AddAnggota(ctx context.Context, kelasID string, muridIDs []
 	}
 	defer tx.Rollback()
 	stmt, err := tx.PrepareContext(ctx,
-		`INSERT OR IGNORE INTO kelas_anggota (kelas_id, murid_user_id) VALUES (?, ?)`)
+		`INSERT INTO kelas_anggota (kelas_id, murid_user_id) VALUES (?, ?) ON CONFLICT DO NOTHING`)
 	if err != nil {
 		return err
 	}
@@ -385,7 +385,7 @@ func (s *KelasStore) AddGuruAnggota(ctx context.Context, kelasID string, guruIDs
 	}
 
 	stmt, err := tx.PrepareContext(ctx,
-		`INSERT OR IGNORE INTO kelas_guru (kelas_id, guru_user_id) VALUES (?, ?)`)
+		`INSERT INTO kelas_guru (kelas_id, guru_user_id) VALUES (?, ?) ON CONFLICT DO NOTHING`)
 	if err != nil {
 		return err
 	}

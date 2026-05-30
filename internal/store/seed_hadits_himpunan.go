@@ -58,9 +58,9 @@ func SeedHaditsHimpunan(ctx context.Context, db *sql.DB) (int, error) {
 	for _, k := range haditsHimpunan {
 		id := "hk_" + k.slug
 		res, err := tx.ExecContext(ctx,
-			`INSERT OR IGNORE INTO hadits_kitab
+			`INSERT INTO hadits_kitab
 			   (id, slug, nama, nama_arab, perawi, urutan, scope, jumlah_halaman)
-			 VALUES (?, ?, ?, ?, NULL, ?, 'hadits', ?)`,
+			 VALUES (?, ?, ?, ?, NULL, ?, 'hadits', ?) ON CONFLICT DO NOTHING`,
 			id, k.slug, k.nama, k.namaArab, k.urutan, k.jumlahHal,
 		)
 		if err != nil {

@@ -9,8 +9,8 @@ CREATE TABLE teachers (
   retired_at  DATE,
   status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','retired')),
   notes       TEXT,
-  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_teachers_name     ON teachers(name);

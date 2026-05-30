@@ -7,8 +7,8 @@ CREATE TABLE attendances (
   student_id   TEXT NOT NULL,
   status       TEXT NOT NULL CHECK (status IN ('hadir','izin_murid','izin_guru','by_vn')),
   materi       TEXT,
-  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_attendances_date         ON attendances(date);
 CREATE INDEX idx_attendances_student_date ON attendances(student_id, date);

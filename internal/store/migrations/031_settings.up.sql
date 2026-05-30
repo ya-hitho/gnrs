@@ -6,8 +6,9 @@
 CREATE TABLE settings (
   key        TEXT PRIMARY KEY,
   value      TEXT NOT NULL,
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
 );
 
 -- Default brand suffix mirrors the previous hard-coded "US".
-INSERT OR IGNORE INTO settings (key, value) VALUES ('instansi_name', 'US');
+INSERT INTO settings (key, value) VALUES ('instansi_name', 'US')
+ON CONFLICT DO NOTHING;

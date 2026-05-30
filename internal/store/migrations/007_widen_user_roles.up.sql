@@ -4,9 +4,7 @@
 
 DROP INDEX IF EXISTS idx_users_username;
 
-ALTER TABLE users RENAME TO users_old_007;
-
-CREATE TABLE users (
+CREATE TABLE users_new_007 (
   id          TEXT PRIMARY KEY,
   email       TEXT NOT NULL UNIQUE,
   username    TEXT,
@@ -15,15 +13,16 @@ CREATE TABLE users (
   role        TEXT NOT NULL DEFAULT 'staff'
               CHECK (role IN ('admin','staff','pengurus','guru','ortu','murid')),
   active      INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
-  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO users (id, email, username, password, name, role, active, created_at, updated_at)
+INSERT INTO users_new_007 (id, email, username, password, name, role, active, created_at, updated_at)
   SELECT id, email, username, password, name, role, 1, created_at, updated_at
-    FROM users_old_007;
+    FROM users;
 
-DROP TABLE users_old_007;
+DROP TABLE users;
+ALTER TABLE users_new_007 RENAME TO users;
 
 CREATE UNIQUE INDEX idx_users_username ON users(username) WHERE username IS NOT NULL;
 CREATE INDEX idx_users_role ON users(role);

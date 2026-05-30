@@ -9,11 +9,12 @@
 CREATE TABLE sesi_materi (
   sesi_id        TEXT NOT NULL,
   materi_ajar_id TEXT NOT NULL,
-  created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_at     TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   PRIMARY KEY (sesi_id, materi_ajar_id)
 );
 
 CREATE INDEX idx_sesi_materi_materi ON sesi_materi(materi_ajar_id);
 
-INSERT OR IGNORE INTO sesi_materi (sesi_id, materi_ajar_id)
-SELECT id, materi_ajar_id FROM sesi WHERE materi_ajar_id IS NOT NULL;
+INSERT INTO sesi_materi (sesi_id, materi_ajar_id)
+SELECT id, materi_ajar_id FROM sesi WHERE materi_ajar_id IS NOT NULL
+ON CONFLICT DO NOTHING;

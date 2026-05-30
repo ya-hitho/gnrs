@@ -18,8 +18,8 @@ CREATE TABLE tahun_ajaran (
                          CHECK (semester2_start_month BETWEEN 1 AND 12),
   tanggal_mulai          TEXT,
   tanggal_selesai        TEXT,
-  created_at             TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at             TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  created_at             TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+  updated_at             TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
 );
 
 CREATE INDEX idx_tahun_ajaran_active ON tahun_ajaran(active);

@@ -10,10 +10,10 @@ CREATE TABLE kelas (
   nama          TEXT NOT NULL,
   tingkat       TEXT NOT NULL,
   guru_user_id  TEXT,
-  tahun         INTEGER NOT NULL DEFAULT (CAST(strftime('%Y','now') AS INTEGER)),
+  tahun         INTEGER NOT NULL DEFAULT (CAST(EXTRACT(YEAR FROM now()) AS INTEGER)),
   deskripsi     TEXT,
-  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_at    TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+  updated_at    TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   UNIQUE(nama, tahun)
 );
 
@@ -25,7 +25,7 @@ CREATE INDEX idx_kelas_guru    ON kelas(guru_user_id);
 CREATE TABLE kelas_anggota (
   kelas_id        TEXT NOT NULL,
   murid_user_id   TEXT NOT NULL,
-  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_at      TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   PRIMARY KEY (kelas_id, murid_user_id)
 );
 

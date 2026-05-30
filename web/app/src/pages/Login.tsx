@@ -10,6 +10,7 @@ import { ApiError } from '@/lib/api'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Field } from '@/components/Field'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useState } from 'react'
 
 type FormValues = { identifier: string; password: string }
@@ -51,7 +52,10 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-6 text-xl font-semibold">{t('auth.loginTitle')}</h1>
+        <div className="mb-6 flex items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold">{t('auth.loginTitle')}</h1>
+          <LanguageSwitcher />
+        </div>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Field label={t('auth.emailOrUsername')} htmlFor="identifier" error={errors.identifier?.message}>
             <Input

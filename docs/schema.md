@@ -1,11 +1,20 @@
 # Database schema
 
-Authoritative reference for the SQLite schema served by the gnrs app. Migrations
+Authoritative reference for the PostgreSQL schema served by the gnrs app. Migrations
 live in [`internal/store/migrations/`](../internal/store/migrations/) — they are
 the **source of truth** and run on every server boot via `store.Migrate` (see
 `internal/store/store.go`, which wraps [golang-migrate](https://github.com/golang-migrate/migrate)
 over the embedded `migrations/*.sql` files). This document mirrors the live
 schema after the most recent migration (`040_pencapaian_library`).
+
+> **Ported from SQLite to PostgreSQL.** The app originally ran on SQLite; the
+> migrations and store were ported to PostgreSQL (`jackc/pgx/v5`). Column types
+> map as `DATETIME` → `TIMESTAMPTZ`, the `strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+> defaults → `to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+> and integer-boolean columns stay `INTEGER`. Several historical migrations note
+> "SQLite cannot ALTER a CHECK" — that explains *why* a table-rebuild shape exists;
+> the ported migrations keep the rebuild but recreate the table under a temporary
+> name to avoid PostgreSQL constraint-name collisions.
 
 The defining feature of this schema is its **single unified `users` table**. Every
 person in the system — admin, staff, pengurus, guru (teacher), ortu (parent), and
@@ -131,7 +140,7 @@ Key relationships, restated:
 | App-only enums | Some columns are enum-shaped only in application code, with **no SQL CHECK**: `users.kelompok`, `sesi.library_kind`/`library_aspect`/`live_display_mode`, `rencana_bulanan_item.library_kind`. Invalid values are rejected by Go/the frontend, not by SQLite. |
 | No FK on person references | `attendances`, `sesi`, `kelas*`, `bacaan_log`, `pencapaian`, and `quran_manqul_note` reference `users.id` **without a foreign key** — deliberate, for soft removal. Queries `LEFT JOIN users` and `COALESCE(name, id)`. |
 | Soft delete | People are never physically deleted in normal operation: set `active = 0` and/or `membership_status` to `left` (murid) / `retired` (guru). The no-FK design keeps their historical rows resolving. |
-| Connection / pragmas | `store.Open` opens one DSN `file:<path>?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on` and calls `db.SetMaxOpenConns(1)` — WAL journaling, a 5 s busy timeout, per-connection FK enforcement, and a single serialized connection that sidesteps SQLite's single-writer limit. |
+| Connection / driver | `store.Open(DATABASE_URL)` opens a PostgreSQL pool via `jackc/pgx/v5/stdlib`, wrapped in a thin `database/sql` driver that rewrites the store's SQLite-style `?` placeholders to `$1, $2, …` ordinals. The pool allows concurrent connections (`SetMaxOpenConns(20)`); PostgreSQL has no single-writer limit. |
 
 ---
 
@@ -1735,14 +1744,14 @@ Internal bookkeeping table created and owned **entirely by
 [golang-migrate](https://github.com/golang-migrate/migrate)**, not by any project
 migration file. It tracks which migration version has been applied so `m.Up()`
 (called from `store.Migrate` in `internal/store/store.go`) knows where to resume.
-gnrs uses the `golang-migrate/v4` SQLite3 driver (`database/sqlite3`) with
+gnrs uses the `golang-migrate/v4` PostgreSQL driver (`database/postgres`) with
 migrations embedded from `internal/store/migrations/*.sql` via `source/iofs`.
 **Never created, edited, or queried by application code; never hand-edited.** Its
 exact shape is defined by the migrate library, not this repo, so the DDL below is
-the library's standard SQLite layout (documented, not authored here).
+the library's standard PostgreSQL layout (documented, not authored here).
 
 ```sql
--- Managed by golang-migrate (SQLite3 driver). NOT defined in this repo's
+-- Managed by golang-migrate (PostgreSQL driver). NOT defined in this repo's
 -- migrations/ directory — created automatically on first Migrate().
 CREATE TABLE schema_migrations (
   version BIGINT  NOT NULL PRIMARY KEY,  -- highest applied migration number (e.g. 40)

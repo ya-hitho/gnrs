@@ -32,33 +32,37 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
-
 	"github.com/oklog/ulid/v2"
+
+	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 )
 
 func main() {
-	dbPath := flag.String("db", "/app/data/app.db", "Path to SQLite database")
+	dbDSN := flag.String("db", "", "PostgreSQL DSN (default: $DATABASE_URL)")
 	dryRun := flag.Bool("dry-run", false, "Parse + report without writing")
 	limit := flag.Int("limit", 0, "Stop after N attendances (0=all)")
 	flag.Parse()
 
-	db, err := sql.Open("sqlite", *dbPath)
+	conn := *dbDSN
+	if conn == "" {
+		conn = os.Getenv("DATABASE_URL")
+	}
+	if conn == "" {
+		conn = config.DefaultDatabaseURL
+	}
+	db, err := store.Open(conn)
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
 	defer db.Close()
-
-	if _, err := db.Exec(`PRAGMA foreign_keys=ON`); err != nil {
-		log.Fatalf("pragma: %v", err)
-	}
 
 	ctx := context.Background()
 
 	// 1) Fix the 2005 typo.
 	if !*dryRun {
 		res, err := db.ExecContext(ctx,
-			`UPDATE attendances SET date = '2025-08-26' WHERE date LIKE '2005-%'`)
+			`UPDATE attendances SET date = '2025-08-26' WHERE date::text LIKE '2005-%'`)
 		if err != nil {
 			log.Fatalf("fix 2005: %v", err)
 		}
@@ -96,7 +100,7 @@ func main() {
 	parser := newParser(doaList, kitabList)
 	imported, skipped, libRefs, riwayatRows := 0, 0, 0, 0
 	rows, err := db.QueryContext(ctx,
-		`SELECT id, date, duration_min, teacher_id, student_id, status, materi, created_at
+		`SELECT id, date::text, duration_min, teacher_id, student_id, status, materi, created_at
 		   FROM attendances
 		  WHERE sesi_id IS NULL
 		  ORDER BY date ASC, created_at ASC`)
@@ -301,7 +305,7 @@ func loadKitab(ctx context.Context, db *sql.DB) ([]kitabRef, error) {
 func loadStudents(ctx context.Context, db *sql.DB) (map[string]student, error) {
 	// Only students that appear in attendances.
 	rows, err := db.QueryContext(ctx,
-		`SELECT u.id, u.name, u.date_of_birth
+		`SELECT u.id, u.name, u.date_of_birth::text
 		   FROM users u
 		  WHERE u.id IN (SELECT DISTINCT student_id FROM attendances)`)
 	if err != nil {
@@ -361,7 +365,7 @@ func ensureKelasPerStudent(
 	}
 	teachersByStudent := map[string]map[string]teacherInfo{}
 	rows, err = db.QueryContext(ctx,
-		`SELECT student_id, teacher_id, MAX(date)
+		`SELECT student_id, teacher_id, MAX(date)::text
 		   FROM attendances GROUP BY student_id, teacher_id`)
 	if err != nil {
 		return nil, err
@@ -415,7 +419,7 @@ func ensureKelasPerStudent(
 		// Write/upsert kelas_anggota (the student).
 		if !dry {
 			if _, err := tx.ExecContext(ctx,
-				`INSERT OR IGNORE INTO kelas_anggota (kelas_id, murid_user_id) VALUES (?, ?)`,
+				`INSERT INTO kelas_anggota (kelas_id, murid_user_id) VALUES (?, ?) ON CONFLICT DO NOTHING`,
 				k.id, sid,
 			); err != nil {
 				return nil, fmt.Errorf("insert anggota %q: %w", k.nama, err)
@@ -436,7 +440,7 @@ func ensureKelasPerStudent(
 			}
 			if !dry {
 				if _, err := tx.ExecContext(ctx,
-					`INSERT OR IGNORE INTO kelas_guru (kelas_id, guru_user_id) VALUES (?, ?)`,
+					`INSERT INTO kelas_guru (kelas_id, guru_user_id) VALUES (?, ?) ON CONFLICT DO NOTHING`,
 					k.id, t.id,
 				); err != nil {
 					return nil, fmt.Errorf("insert kelas_guru: %w", err)

@@ -11,25 +11,31 @@ import (
 	"database/sql"
 	"flag"
 	"log"
+	"os"
 	"time"
 
-	_ "modernc.org/sqlite"
-
 	"github.com/oklog/ulid/v2"
+
+	"github.com/fadhilkurnia/ppg-dashboard/internal/config"
+	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
 )
 
 func main() {
-	dbPath := flag.String("db", "/app/data/app.db", "Path to SQLite database")
+	dsn := flag.String("db", "", "PostgreSQL DSN (default: $DATABASE_URL)")
 	flag.Parse()
 
-	db, err := sql.Open("sqlite", *dbPath)
+	conn := *dsn
+	if conn == "" {
+		conn = os.Getenv("DATABASE_URL")
+	}
+	if conn == "" {
+		conn = config.DefaultDatabaseURL
+	}
+	db, err := store.Open(conn)
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
 	defer db.Close()
-	if _, err := db.Exec(`PRAGMA foreign_keys=ON`); err != nil {
-		log.Fatalf("pragma: %v", err)
-	}
 
 	ctx := context.Background()
 

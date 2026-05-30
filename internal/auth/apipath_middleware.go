@@ -16,22 +16,36 @@ const canonicalAPIPrefix = "/api"
 // canonical prefix even when the dynamic-path feature is on. These are the
 // endpoints a client must hit before (or without) a per-session prefix:
 //   - login/logout bootstrap (the SPA has no prefix yet, or is tearing one down)
+//   - auth/me, the session-check + prefix-recovery endpoint: a request bearing
+//     a valid JWT but no auth_path cookie (first load after the feature was
+//     enabled, or the cookie was evicted) reaches Me, which mints a fresh
+//     prefix so the SPA self-heals instead of being bounced to /login. It is
+//     still behind the JWT auth middleware, so this is no weaker than login.
 //   - public self-service endpoints (no session at all)
 //   - photo <img> URLs, which the browser issues as plain GETs that cannot
 //     carry the rotating prefix.
 //
 // Everything else under /api must come through the dynamic prefix and the
 // matching auth_path cookie.
+//
+// Entries ending in "/" match by directory prefix; all others must match
+// exactly, so allowlisting "/api/auth/me" does not also expose
+// "/api/auth/me/password" or "/api/auth/me/photo".
 var directAPIAllowlist = []string{
 	"/api/auth/login",
 	"/api/auth/logout",
+	"/api/auth/me",
 	"/api/files/photos/",
 	"/api/public/",
 }
 
 func isDirectAPIAllowed(p string) bool {
 	for _, a := range directAPIAllowlist {
-		if p == a || strings.HasPrefix(p, a) {
+		if strings.HasSuffix(a, "/") {
+			if strings.HasPrefix(p, a) {
+				return true
+			}
+		} else if p == a {
 			return true
 		}
 	}

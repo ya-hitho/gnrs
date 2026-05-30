@@ -27,9 +27,11 @@
    * inconsistent row heights. Strip appearance so our utility classes own
    * the height, borders, and background.
    *
-   * NOTE: unlike ppgus, this block deliberately does NOT set
-   * min-height:100dvh on html/body/#root — gnrs uses a fixed shell
-   * (height:100%; overflow:hidden, declared in the @layer base above).
+   * NOTE: the app shell (Layout) sizes to 100dvh on mobile
+   * (h-[100dvh], md:h-screen on desktop) so the bottom nav stays above
+   * iOS Safari's dynamic toolbar; html/body/#root keep height:100% +
+   * overflow:hidden (declared in the @layer base above) as the
+   * non-scrolling backdrop.
    */
   input[type='text'],
   input[type='search'],

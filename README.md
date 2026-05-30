@@ -1,19 +1,20 @@
 # PPG Dashboard
 
 A small school dashboard with user auth and student records. Single-binary
-Go backend embedding a React SPA, SQLite for storage. Production image is
-~30 MB.
+Go backend embedding a React SPA, PostgreSQL for storage.
 
 ## Stack
 
-- **Backend** – Go 1.22, [chi](https://github.com/go-chi/chi), SQLite
-  (`mattn/go-sqlite3`), embedded migrations (`golang-migrate`), JWT in an
-  httpOnly cookie (`golang-jwt`), bcrypt, structured logs (`log/slog`).
+- **Backend** – Go 1.22, [chi](https://github.com/go-chi/chi), PostgreSQL
+  (`jackc/pgx/v5` via `database/sql`), embedded migrations (`golang-migrate`),
+  JWT in an httpOnly cookie (`golang-jwt`), bcrypt, structured logs
+  (`log/slog`). The store keeps SQLite-style `?` placeholders; a thin driver
+  wrapper rewrites them to PostgreSQL `$n` ordinals.
 - **Frontend** – Vite 5, React 18, TypeScript (strict), TanStack Router
   (file-based, type-safe), TanStack Query, Tailwind v3, React Hook Form
   + Zod, lucide-react.
-- **Packaging** – Multi-stage Docker build, single static binary with the
-  SPA embedded via `go:embed`. Alpine base.
+- **Packaging** – Multi-stage Docker build, single static binary (pure Go,
+  CGO disabled) with the SPA embedded via `go:embed`. Debian base.
 
 ## Layout
 
@@ -25,7 +26,7 @@ internal/
   handler/          HTTP handlers (auth, students)
   httpx/            JSON helpers
   model/            domain types (User, Student)
-  store/            SQLite queries + embedded migrations
+  store/            PostgreSQL queries + embedded migrations
 web/
   app/              Vite + React SPA source
   dist/             SPA build output (generated; only .gitkeep tracked)
@@ -34,8 +35,11 @@ web/
 
 ## Required toolchain
 
-- **Local dev** – Go ≥ 1.22, Node ≥ 20, pnpm 9 (managed via corepack).
-- **Docker only** – just Docker; the image builds Node + Go itself.
+- **Local dev** – Go ≥ 1.22, Node ≥ 20, pnpm 9 (managed via corepack), and a
+  reachable PostgreSQL (≥ 14). Point `DATABASE_URL` at it; the app creates its
+  own schema on first boot via `golang-migrate`.
+- **Docker only** – just Docker; the image builds Node + Go itself and the
+  compose stack ships its own `postgres:17`.
 
 ## Quick start (Docker)
 
@@ -45,7 +49,9 @@ docker compose up --build
 # → http://localhost:8080
 ```
 
-The compose file persists SQLite to a named volume (`ppg-data`).
+The compose stack runs a `postgres:17` service (data in the `gnrs-db`
+volume); uploaded photos persist in the `gnrs-data` volume. `DATABASE_URL`
+defaults to the bundled `db` service.
 
 ## Quick start (local dev)
 
@@ -71,7 +77,10 @@ JWT_SECRET=... ./server
 ## Tests
 
 ```bash
-go test ./...                 # store + auth tests
+# DB-backed store/handler tests need a throwaway PostgreSQL; they create and
+# drop an isolated schema per test and SKIP when TEST_DATABASE_URL is unset.
+TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/gnrs_test?sslmode=disable \
+  go test ./...
 pnpm --dir web/app typecheck  # frontend type-check
 ```
 
@@ -84,7 +93,8 @@ All runtime config is via env vars. See [`.env.example`](./.env.example).
 | `JWT_SECRET`           | yes      | —                  | HMAC secret, ≥ 32 bytes (`openssl rand -hex 32`)          |
 | `JWT_TTL`              | no       | `24h`              | Go duration                                               |
 | `COOKIE_SECURE`        | no       | `false`            | Set `true` behind HTTPS                                   |
-| `DATABASE_PATH`        | no       | `./data/app.db`    | SQLite file path                                          |
+| `DATABASE_URL`         | no       | `postgres://postgres:postgres@localhost:5432/gnrs?sslmode=disable` | PostgreSQL DSN |
+| `DATA_DIR`             | no       | `./data`           | Base dir for uploaded photos (`$DATA_DIR/photos`)         |
 | `PORT`                 | no       | `8080`             | HTTP listen port                                          |
 | `DEV`                  | no       | `false`            | Skip serving the embedded SPA (Vite handles frontend)     |
 | `SEED_ADMIN_EMAIL`     | no       | —                  | First-boot admin (created only if `users` is empty)       |

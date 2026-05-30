@@ -1,23 +1,14 @@
 package store
 
 import (
-	"path/filepath"
 	"testing"
 )
 
 func TestMigrate041SubmittedPhoneColumn(t *testing.T) {
-	dir := t.TempDir()
-	db, err := Open(filepath.Join(dir, "test.db"))
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := Migrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db := openTestDB(t)
 	var count int
 	if err := db.QueryRow(
-		`SELECT COUNT(*) FROM pragma_table_info('attendances') WHERE name = 'submitted_phone'`,
+		`SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'attendances' AND column_name = 'submitted_phone'`,
 	).Scan(&count); err != nil {
 		t.Fatalf("pragma: %v", err)
 	}

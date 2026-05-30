@@ -8,9 +8,13 @@ import (
 	"time"
 )
 
+// DefaultDatabaseURL is the PostgreSQL DSN used when DATABASE_URL is unset.
+// It matches the docker-compose `db` service defaults for local development.
+const DefaultDatabaseURL = "postgres://postgres:postgres@localhost:5432/gnrs?sslmode=disable"
+
 type Config struct {
 	Port            int
-	DatabasePath    string
+	DatabaseURL     string
 	PhotosDir       string
 	JWTSecret       []byte
 	JWTTTL          time.Duration
@@ -23,11 +27,11 @@ type Config struct {
 }
 
 func Load() (Config, error) {
-	dbPath := getString("DATABASE_PATH", "./data/app.db")
+	dataDir := getString("DATA_DIR", "./data")
 	c := Config{
 		Port:           getInt("PORT", 8080),
-		DatabasePath:   dbPath,
-		PhotosDir:      getString("PHOTOS_DIR", filepath.Join(filepath.Dir(dbPath), "photos")),
+		DatabaseURL:    getString("DATABASE_URL", DefaultDatabaseURL),
+		PhotosDir:      getString("PHOTOS_DIR", filepath.Join(dataDir, "photos")),
 		JWTTTL:         getDuration("JWT_TTL", 24*time.Hour),
 		CookieSecure:   getBool("COOKIE_SECURE", false),
 		SeedAdminEmail:    os.Getenv("SEED_ADMIN_EMAIL"),

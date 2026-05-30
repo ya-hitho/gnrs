@@ -16,7 +16,7 @@ CREATE TABLE materi_library_ref (
   library_kind    TEXT NOT NULL CHECK (library_kind IN ('quran','hadits','tilawati','doa')),
   library_aspect  TEXT,
   library_ref     TEXT NOT NULL,
-  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_at      TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   UNIQUE(materi_ajar_id, library_kind, library_aspect, library_ref)
 );
 
@@ -28,7 +28,7 @@ CREATE TABLE materi_relation (
   -- prevent (a,b) and (b,a) duplicates.
   materi_a_id     TEXT NOT NULL,
   materi_b_id     TEXT NOT NULL,
-  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_at      TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   PRIMARY KEY (materi_a_id, materi_b_id),
   CHECK (materi_a_id < materi_b_id)
 );

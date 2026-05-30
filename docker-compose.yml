@@ -1,15 +1,37 @@
 services:
+  db:
+    image: postgres:17
+    container_name: gnrs-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-gnrs}
+    volumes:
+      - gnrs-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gnrs}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   app:
     build: .
     image: gnrs:latest
     container_name: gnrs
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "${PORT:-8080}:8080"
     environment:
       JWT_SECRET: ${JWT_SECRET}
       JWT_TTL: ${JWT_TTL:-24h}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      DATABASE_PATH: /app/data/app.db
+      # Defaults to the bundled `db` service. Override for an external
+      # PostgreSQL. sslmode=disable is fine on the private compose network.
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/gnrs?sslmode=disable}
+      DATA_DIR: /app/data
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
@@ -19,3 +41,4 @@ services:
 
 volumes:
   gnrs-data:
+  gnrs-db:

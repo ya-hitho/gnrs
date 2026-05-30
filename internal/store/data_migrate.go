@@ -67,7 +67,7 @@ func MigrateLegacyData(ctx context.Context, db *sql.DB) (int, int, error) {
 func tableExists(ctx context.Context, db *sql.DB, name string) (bool, error) {
 	var n int
 	err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, name).Scan(&n)
+		`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?`, name).Scan(&n)
 	if err != nil {
 		return false, err
 	}

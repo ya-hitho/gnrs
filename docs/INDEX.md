@@ -26,7 +26,7 @@ from the catalog below.
 
 ### Reference docs (flat files in `docs/`)
 
-- [`schema.md`](./schema.md) — Authoritative SQLite schema reference. Reconstructs
+- [`schema.md`](./schema.md) — Authoritative PostgreSQL schema reference. Reconstructs
   the live schema after the most recent migration from the files in
   [`internal/store/migrations/`](../internal/store/migrations/), which are the
   source of truth. Covers the unified `users` table, the Generus/Pengajar
@@ -98,7 +98,7 @@ stays machine-navigable for the next agent:
 - **API contract** uses the existing JSON envelope: the resource on success,
   `{"error":{"code":"...","message":"..."}}` on failure.
 - **Stack-accurate examples.** Backend examples target the real stack (Go + chi
-  + SQLite via `mattn/go-sqlite3`, `golang-migrate`, `golang-jwt`, ULIDs,
+  + PostgreSQL via `jackc/pgx/v5`, `golang-migrate`, `golang-jwt`, ULIDs,
   `log/slog`); frontend examples target React 18 + TypeScript + Vite + TanStack
   Router/Query + Tailwind v3 in `web/app/`. New dependencies are flagged
   explicitly with rationale.

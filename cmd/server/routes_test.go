@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,15 +17,7 @@ import (
 )
 
 func TestPublicRoutesAreUnauthenticated(t *testing.T) {
-	dir := t.TempDir()
-	db, err := store.Open(filepath.Join(dir, "test.db"))
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.Migrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db := openTestDB(t)
 
 	publicH := handler.NewPublicAttendance(
 		store.NewAttendances(db), store.NewStudents(db), store.NewTeachers(db),
@@ -54,15 +45,7 @@ func TestPublicRoutesAreUnauthenticated(t *testing.T) {
 // exhaustion cannot regress. Mirrors the run() wiring (same reconstruct style
 // as TestPublicRoutesAreUnauthenticated).
 func TestLoginRouteIsRateLimited(t *testing.T) {
-	dir := t.TempDir()
-	db, err := store.Open(filepath.Join(dir, "test.db"))
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.Migrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db := openTestDB(t)
 	users := store.NewUsers(db)
 	if err := store.SeedAdmin(context.Background(), users, "admin@example.com", "admin", "password123"); err != nil {
 		t.Fatalf("seed admin: %v", err)

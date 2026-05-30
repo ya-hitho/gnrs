@@ -8,9 +8,9 @@ CREATE TABLE sesi_materi_diajarkan_old (
   label               TEXT,
   needs_parent_review INTEGER NOT NULL DEFAULT 0,
   parent_note         TEXT,
-  taught_at           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  taught_at           TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+  created_at          TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+  updated_at          TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   FOREIGN KEY (sesi_id) REFERENCES sesi(id) ON DELETE CASCADE
 );
 INSERT INTO sesi_materi_diajarkan_old

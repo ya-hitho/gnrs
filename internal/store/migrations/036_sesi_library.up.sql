@@ -11,7 +11,7 @@ CREATE TABLE sesi_library (
   library_aspect TEXT,
   library_ref    TEXT NOT NULL,
   position       INTEGER NOT NULL DEFAULT 0,
-  created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_at     TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   FOREIGN KEY (sesi_id) REFERENCES sesi(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_sesi_library_sesi ON sesi_library(sesi_id, position);

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -16,15 +15,7 @@ import (
 
 func newAuthTestDeps(t *testing.T, dynamic bool) (*Auth, *store.Users) {
 	t.Helper()
-	dir := t.TempDir()
-	db, err := store.Open(filepath.Join(dir, "test.db"))
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.Migrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db := openTestDB(t)
 	users := store.NewUsers(db)
 	if err := store.SeedAdmin(context.Background(), users, "admin@example.com", "admin", "password123"); err != nil {
 		t.Fatalf("seed admin: %v", err)
@@ -129,15 +120,7 @@ func TestLogout_ClearsAuthPathCookie(t *testing.T) {
 // cookie) must NOT be bounced to /login. Me mints a fresh prefix, sets the
 // auth_path cookie, and returns it as apiBase so the SPA self-heals.
 func TestMe_DynamicOn_MissingAuthPath_SelfHeals(t *testing.T) {
-	dir := t.TempDir()
-	db, err := store.Open(filepath.Join(dir, "test.db"))
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.Migrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db := openTestDB(t)
 	users := store.NewUsers(db)
 	if err := store.SeedAdmin(context.Background(), users, "admin@example.com", "admin", "password123"); err != nil {
 		t.Fatalf("seed admin: %v", err)

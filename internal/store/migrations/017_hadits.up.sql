@@ -16,8 +16,8 @@ CREATE TABLE hadits_kitab (
   scope           TEXT NOT NULL DEFAULT 'both'
                   CHECK (scope IN ('hadits','maktabah','both')),
   jumlah_halaman  INTEGER NOT NULL DEFAULT 0,
-  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  created_at      TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+  updated_at      TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
 );
 
 CREATE INDEX idx_hadits_kitab_scope  ON hadits_kitab(scope);
@@ -29,7 +29,7 @@ CREATE TABLE hadits_bab (
   nomor       INTEGER NOT NULL,
   nama        TEXT NOT NULL,
   deskripsi   TEXT,
-  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  created_at  TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
 );
 
 CREATE INDEX idx_hadits_bab_kitab ON hadits_bab(kitab_id, nomor);
@@ -46,8 +46,8 @@ CREATE TABLE hadits (
   perawi        TEXT,
   derajat       TEXT,
   sumber_asli   TEXT,
-  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  created_at    TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+  updated_at    TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
 );
 
 CREATE INDEX idx_hadits_kitab ON hadits(kitab_id, nomor);

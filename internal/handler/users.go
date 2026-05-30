@@ -477,11 +477,5 @@ func isValidLevel(s string) bool {
 }
 
 func isUniqueConflict(err error) bool {
-	if err == nil {
-		return false
-	}
-	s := err.Error()
-	return strings.Contains(s, "UNIQUE constraint failed") ||
-		strings.Contains(s, "constraint failed: users.email") ||
-		strings.Contains(s, "constraint failed: users.username")
+	return store.IsUniqueViolation(err)
 }

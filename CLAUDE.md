@@ -146,7 +146,7 @@ Before you write code:
 While you work:
 
 - [ ] Follow the existing coding style (see `README.md` for the
-      stack: Go + chi + SQLite, Vite + React 18 + TanStack Router,
+      stack: Go + chi + PostgreSQL, Vite + React 18 + TanStack Router,
       Tailwind v3).
 - [ ] Don't break working code; run `make test` and
       `make typecheck` before pushing.

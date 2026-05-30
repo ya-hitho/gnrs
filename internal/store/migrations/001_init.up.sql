@@ -4,8 +4,8 @@ CREATE TABLE users (
   password    TEXT NOT NULL,
   name        TEXT NOT NULL,
   role        TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('admin','staff')),
-  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE students (
@@ -18,8 +18,8 @@ CREATE TABLE students (
   parent_name   TEXT NOT NULL,
   parent_phone  TEXT NOT NULL,
   parent_email  TEXT,
-  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_students_name ON students(name);

@@ -10,8 +10,8 @@ CREATE TABLE attendances_new (
   student_id   TEXT NOT NULL,
   status       TEXT NOT NULL CHECK (status IN ('hadir','izin_murid','izin_guru','by_vn','alfa')),
   materi       TEXT,
-  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   sesi_id      TEXT
 );
 

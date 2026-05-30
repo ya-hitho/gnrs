@@ -9,12 +9,13 @@
 CREATE TABLE kelas_guru (
   kelas_id      TEXT NOT NULL,
   guru_user_id  TEXT NOT NULL,
-  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_at    TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   PRIMARY KEY (kelas_id, guru_user_id)
 );
 
 CREATE INDEX idx_kelas_guru_guru ON kelas_guru(guru_user_id);
 
 -- Backfill: every existing kelas with a non-null guru_user_id gets a row.
-INSERT OR IGNORE INTO kelas_guru (kelas_id, guru_user_id)
-SELECT id, guru_user_id FROM kelas WHERE guru_user_id IS NOT NULL;
+INSERT INTO kelas_guru (kelas_id, guru_user_id)
+SELECT id, guru_user_id FROM kelas WHERE guru_user_id IS NOT NULL
+ON CONFLICT DO NOTHING;

@@ -45,26 +45,33 @@ container's `8080`).
 Stop / clean up:
 
 ```powershell
-podman compose down              # stop; keep the gnrs-data volume
-podman compose down -v           # stop and delete the SQLite volume
+podman compose down              # stop; keep the gnrs-data / gnrs-db volumes
+podman compose down -v           # stop and delete the photo + PostgreSQL volumes
 ```
 
 ## Or: run without a Compose provider
 
-This single-service app doesn't actually need Compose — you can run it right
-now with plain Podman:
+The app now needs a PostgreSQL server, so plain Podman means two containers on
+a shared network:
 
 ```powershell
+podman network create gnrs-net
+podman volume create gnrs-db
+podman run -d --name gnrs-db --network gnrs-net `
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=gnrs `
+  -v gnrs-db:/var/lib/postgresql/data --restart=unless-stopped postgres:17
+
 podman build -t gnrs:latest .
 podman volume create gnrs-data
-podman run -d --name gnrs --env-file .env -p 8300:8300 `
+podman run -d --name gnrs --network gnrs-net --env-file .env -p 8300:8300 `
+  -e DATABASE_URL="postgres://postgres:postgres@gnrs-db:5432/gnrs?sslmode=disable" `
   -v gnrs-data:/app/data --restart=unless-stopped gnrs:latest
 ```
 
-`--env-file .env` supplies `JWT_SECRET`, `DATABASE_PATH=/app/data/app.db` and
-`PORT=8300`, so the server listens on `8300` inside the container — hence
-`-p 8300:8300`. (The compose file instead keeps the container on `8080` and
-only varies the *host* port; both approaches work.)
+`--env-file .env` supplies `JWT_SECRET` and `PORT=8300`, so the server listens
+on `8300` inside the container — hence `-p 8300:8300`. `DATABASE_URL` points the
+app at the `gnrs-db` container by name over the shared network; `gnrs-data`
+holds uploaded photos. (Compose wires all of this up for you — prefer it.)
 
 ## Notes
 

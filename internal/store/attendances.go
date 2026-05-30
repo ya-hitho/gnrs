@@ -233,18 +233,18 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 		return nil, fmt.Errorf("totals: %w", err)
 	}
 	if err := a.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM attendances WHERE date >= date('now', '-30 days')`,
+		`SELECT COUNT(*) FROM attendances WHERE date >= current_date - INTERVAL '30 days'`,
 	).Scan(&out.Total.Last30Days); err != nil {
 		return nil, fmt.Errorf("last30: %w", err)
 	}
 	if err := a.db.QueryRowContext(ctx,
 		`SELECT COUNT(DISTINCT teacher_id || '|' || student_id) FROM attendances
-		   WHERE date >= date('now', '-30 days')`,
+		   WHERE date >= current_date - INTERVAL '30 days'`,
 	).Scan(&out.Total.ActivePairs); err != nil {
 		return nil, fmt.Errorf("active pairs: %w", err)
 	}
 	monthlyRows, err := a.db.QueryContext(ctx,
-		`SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS sessions,
+		`SELECT to_char(date, 'YYYY-MM') AS month, COUNT(*) AS sessions,
 		        COALESCE(SUM(duration_min), 0) / 60.0 AS hours
 		   FROM attendances`+where+` GROUP BY month ORDER BY month ASC`, args...)
 	if err != nil {
@@ -285,7 +285,7 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 		        COUNT(*) AS total,
 		        SUM(CASE WHEN a.status = 'hadir' THEN 1 ELSE 0 END) AS hadir,
 		        COALESCE(SUM(a.duration_min), 0) / 60.0 AS hours,
-		        MAX(a.date) AS last_date
+		        MAX(a.date)::text AS last_date
 		   FROM attendances a
 		   LEFT JOIN users s ON s.id = a.student_id`+studentWhere+`
 		  GROUP BY a.student_id, s.name
@@ -315,7 +315,7 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 		        COUNT(*) AS total,
 		        COALESCE(SUM(a.duration_min), 0) / 60.0 AS hours,
 		        COUNT(DISTINCT a.student_id) AS uniq,
-		        MAX(a.date) AS last_date
+		        MAX(a.date)::text AS last_date
 		   FROM attendances a
 		   LEFT JOIN users t ON t.id = a.teacher_id`+studentWhere+`
 		  GROUP BY a.teacher_id, t.name
@@ -338,7 +338,7 @@ func (a *Attendances) Stats(ctx context.Context, p AttendanceStatsParams) (*Atte
 		out.ByTeacher = append(out.ByTeacher, t)
 	}
 	yearRows, err := a.db.QueryContext(ctx,
-		`SELECT DISTINCT CAST(strftime('%Y', date) AS INTEGER) AS y FROM attendances ORDER BY y ASC`)
+		`SELECT DISTINCT CAST(EXTRACT(YEAR FROM date) AS INTEGER) AS y FROM attendances ORDER BY y ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("available_years: %w", err)
 	}

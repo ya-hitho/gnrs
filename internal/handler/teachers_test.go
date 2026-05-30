@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/fadhilkurnia/ppg-dashboard/internal/store"
@@ -13,14 +12,7 @@ import (
 
 func newTeachersHandler(t *testing.T) (*Teachers, *store.Teachers) {
 	t.Helper()
-	db, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.Migrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
+	db := openTestDB(t)
 	tc := store.NewTeachers(db)
 	return NewTeachers(tc), tc
 }

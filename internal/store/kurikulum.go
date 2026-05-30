@@ -372,9 +372,9 @@ func (k *Kurikulum) ListLibraryRefs(ctx context.Context, materiAjarID string) ([
 func (k *Kurikulum) AddLibraryRef(ctx context.Context, materiAjarID, kind, ref string, aspect *string) (*MateriLibraryRef, error) {
 	id := ulid.Make().String()
 	_, err := k.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO materi_library_ref
+		`INSERT INTO materi_library_ref
 		   (id, materi_ajar_id, library_kind, library_aspect, library_ref)
-		 VALUES (?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, materiAjarID, kind, aspect, ref)
 	if err != nil {
 		return nil, err
@@ -383,7 +383,7 @@ func (k *Kurikulum) AddLibraryRef(ctx context.Context, materiAjarID, kind, ref s
 	row := k.db.QueryRowContext(ctx,
 		`SELECT id, materi_ajar_id, library_kind, library_aspect, library_ref, created_at
 		 FROM materi_library_ref
-		 WHERE materi_ajar_id = ? AND library_kind = ? AND library_aspect IS ? AND library_ref = ?`,
+		 WHERE materi_ajar_id = ? AND library_kind = ? AND library_aspect IS NOT DISTINCT FROM ? AND library_ref = ?`,
 		materiAjarID, kind, aspect, ref)
 	var r MateriLibraryRef
 	if err := row.Scan(&r.ID, &r.MateriAjarID, &r.LibraryKind, &r.LibraryAspect, &r.LibraryRef, &r.CreatedAt); err != nil {
@@ -443,7 +443,7 @@ func (k *Kurikulum) AddRelation(ctx context.Context, aID, bID string) error {
 		a, b = b, a
 	}
 	_, err := k.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO materi_relation (materi_a_id, materi_b_id) VALUES (?, ?)`,
+		`INSERT INTO materi_relation (materi_a_id, materi_b_id) VALUES (?, ?) ON CONFLICT DO NOTHING`,
 		a, b)
 	return err
 }

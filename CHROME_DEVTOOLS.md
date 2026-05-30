@@ -127,8 +127,8 @@ Hard rules for sharing the browser:
 - **Do not wipe cookies / localStorage / IndexedDB on the shared
   profile.** Per-tab navigation away from a logged-in session is
   fine; clearing browser-wide storage is not. (Each agent's dev
-  container has its own SQLite volume, but they all share this one
-  browser profile.)
+  container has its own PostgreSQL database, but they all share this
+  one browser profile.)
 - **Do not change global Chrome flags** mid-session. Per-tab
   emulation (`mcp__chrome-devtools__emulate`, `resize_page`) is
   scoped to your page and is fine.

@@ -5,9 +5,7 @@ DROP INDEX IF EXISTS idx_students_kelompok;
 DROP INDEX IF EXISTS idx_students_level;
 DROP INDEX IF EXISTS idx_students_name;
 
-ALTER TABLE students RENAME TO students_old_005_down;
-
-CREATE TABLE students (
+CREATE TABLE students_new_005d (
   id            TEXT PRIMARY KEY,
   name          TEXT NOT NULL,
   nickname      TEXT,
@@ -21,12 +19,13 @@ CREATE TABLE students (
   parent_name   TEXT,
   parent_phone  TEXT,
   parent_email  TEXT,
-  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO students SELECT * FROM students_old_005_down;
-DROP TABLE students_old_005_down;
+INSERT INTO students_new_005d SELECT * FROM students;
+DROP TABLE students;
+ALTER TABLE students_new_005d RENAME TO students;
 
 CREATE INDEX idx_students_name     ON students(name);
 CREATE INDEX idx_students_level    ON students(level);

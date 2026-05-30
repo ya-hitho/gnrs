@@ -70,7 +70,7 @@ func SeedHadits(ctx context.Context, db *sql.DB) (int, int, int, int, error) {
 		if strings.HasPrefix(s, "--") || s == "BEGIN TRANSACTION;" || s == "COMMIT;" {
 			return nil
 		}
-		if _, err := tx.ExecContext(ctx, s); err != nil {
+		if _, err := tx.ExecContext(ctx, pgifySeedStmt(s)); err != nil {
 			return fmt.Errorf("seed exec: %w (stmt: %s)", err, truncate(s, 200))
 		}
 		switch {
@@ -131,4 +131,22 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max] + "…"
+}
+
+// pgifySeedStmt rewrites the SQLite-flavoured statements in the embedded seed
+// bundle into PostgreSQL: `INSERT OR IGNORE INTO …` becomes
+// `INSERT INTO … ON CONFLICT DO NOTHING`, preserving the bundle's idempotent
+// "ignore duplicates" semantics. Every target table has a primary key, so an
+// unqualified ON CONFLICT correctly skips rows that already exist. Statements
+// that aren't INSERT OR IGNORE pass through untouched.
+func pgifySeedStmt(s string) string {
+	if !strings.HasPrefix(s, "INSERT OR IGNORE INTO ") {
+		return s
+	}
+	s = strings.Replace(s, "INSERT OR IGNORE INTO ", "INSERT INTO ", 1)
+	s = strings.TrimRight(s, " \t\r\n")
+	if strings.HasSuffix(s, ";") {
+		return s[:len(s)-1] + " ON CONFLICT DO NOTHING;"
+	}
+	return s + " ON CONFLICT DO NOTHING"
 }

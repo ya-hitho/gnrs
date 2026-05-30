@@ -20,8 +20,8 @@ CREATE TABLE pencapaian_new (
   tanggal         TEXT,
   catatan         TEXT,
   recorded_by     TEXT,
-  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  created_at      TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
+  updated_at      TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
   -- Exactly one of (materi_ajar_id) or (library_kind+library_ref) is set.
   CHECK (
     (materi_ajar_id IS NOT NULL AND library_kind IS NULL AND library_ref IS NULL)

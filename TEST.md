@@ -6,20 +6,36 @@ time you build, change, or fix a feature in this repository._
 ## TL;DR
 
 After implementing a feature, **you must exercise it through Chrome
-DevTools against your own local dev container** before you mark the
-work done, open a PR, or hand back to the user. Type-checking and
+DevTools against your own local dev pod** before you mark the work
+done, open a PR, or hand back to the user. Type-checking and
 `go test` confirm code correctness, not feature correctness.
 
 The Chrome DevTools MCP server is available — use the
-`mcp__chrome-devtools__*` tools. `gnrs` has no shared or public
-deployment, so you test against the namespaced local container you
-built from your worktree (see `CLAUDE.md` → *Dev deployment*), not
-against a long-running shared instance another agent might be using.
+`mcp__chrome-devtools__*` tools. `gnrs` has no shared or public dev
+deployment, so you test against the namespaced local **pod** you
+built from your worktree with `deploy/dev-pod.sh` (postgres + app, no
+tunnel — see `CLAUDE.md` → *Per-agent local dev pod*), not against a
+long-running shared instance another agent might be using.
+
+## Merge gate (non-negotiable)
+
+> **Merge to `jalur-yasril` (or `gnrs-evan`) ONLY if the full Chrome
+> DevTools flow below has been run against the dev pod and the feature
+> works correctly** — every step green, no new console errors, no
+> broken adjacent flows. If the flow was skipped, failed, or could not
+> be run, **do not merge**: fix it and re-test, or hand back to the
+> user with an explicit note (see *When you cannot build or run the
+> dev pod*). A green `make test` / `make typecheck` is **not** a
+> substitute for this browser pass and never authorizes a merge on its
+> own. The production Cloudflare-tunnel deploy (`deploy/deploy.sh`,
+> jalur-yasril) is only ever run on an already-merged, browser-verified
+> commit.
 
 ## Test target
 
-Your dev container, built from your worktree and published on a
-loopback port you chose (see `CLAUDE.md` → *Dev deployment*):
+Your dev **pod**, created from your worktree with `deploy/dev-pod.sh`
+and published on a loopback port (default `18300`; see `CLAUDE.md` →
+*Per-agent local dev pod*):
 
 | Field        | Value                                  |
 | ------------ | -------------------------------------- |
@@ -28,9 +44,11 @@ loopback port you chose (see `CLAUDE.md` → *Dev deployment*):
 | API base     | `http://localhost:<your-port>/api`     |
 | Health probe | `http://localhost:<your-port>/healthz` |
 
-The container runs the same single-binary image documented in
-`README.md`, built from your worktree's source — so it reflects your
-in-progress code, including uncommitted edits you want to smoke-test.
+The pod runs the same single-binary image documented in `README.md`
+talking to a real `postgres:17` over the pod's `localhost` — exactly
+the production topology — built from your worktree's source, so it
+reflects your in-progress code, including uncommitted edits you want
+to smoke-test.
 
 ## Required test flow for any new / changed feature
 
@@ -70,15 +88,16 @@ If any step fails, fix the code, rebuild the dev container, and
 rerun the flow from step 1. Do not paper over errors with retries
 or `wait_for` loops.
 
-## When you cannot build or run the dev container
+## When you cannot build or run the dev pod
 
-If you cannot stand up your local dev container (image build
-failure, `podman`/`docker` unavailable, an unresolvable port
-conflict, or the MCP tool is unavailable):
+If you cannot stand up your local dev pod (image build failure,
+`podman`/`docker` unavailable, an unresolvable port conflict, or the
+MCP tool is unavailable):
 
-- **Do not claim the feature is browser-verified.**
-- Say so explicitly in your end-of-turn summary: "couldn't run a
-  dev container, feature is not browser-tested."
+- **Do not claim the feature is browser-verified, and do not merge**
+  (see *Merge gate* above — the browser pass is a hard precondition).
+- Say so explicitly in your end-of-turn summary: "couldn't run a dev
+  pod, feature is not browser-tested."
 - Still run `make test` and `make typecheck`, and report those
   results separately.
 - The user decides whether to proceed without a browser test.

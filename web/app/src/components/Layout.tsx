@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { getSettings } from '@/api/settings'
 import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/Button'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ProfileDialog } from '@/components/ProfileDialog'
 import { cn } from '@/lib/cn'
 
@@ -160,6 +161,10 @@ export function Layout() {
               >
                 <UserIcon size={14} /> {t('nav.profile')}
               </button>
+              <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+                <span className="text-sm text-slate-600">{t('common.language')}</span>
+                <LanguageSwitcher />
+              </div>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -200,6 +205,10 @@ export function Layout() {
           ))}
         </nav>
         <div className="space-y-2 border-t border-slate-200 p-3">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <span className="text-xs font-medium text-slate-400">{t('common.language')}</span>
+            <LanguageSwitcher />
+          </div>
           <button
             type="button"
             onClick={() => setProfileOpen(true)}

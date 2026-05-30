@@ -192,7 +192,12 @@ func run() error {
 
 	r.Route("/api", func(api chi.Router) {
 		authH := handler.NewAuth(users, jwtSvc, cfg.CookieSecure, cfg.DynamicAPIPath)
-		api.Post("/auth/login", authH.Login)
+		// Throttle the credential endpoint per-IP so online password
+		// brute-force and bcrypt CPU-exhaustion are bounded. Mirrors the
+		// public-attendance limiter below; the dynamic-API gate cannot help
+		// here because /auth/login is intentionally on the direct allowlist.
+		loginRL := httpx.NewIPRateLimiter(loginRateBurst, loginRateWindow)
+		api.With(loginRL.Middleware).Post("/auth/login", authH.Login)
 		api.Post("/auth/logout", authH.Logout)
 
 		// Public, unauthenticated /absen endpoints — registered BEFORE the
@@ -277,7 +282,7 @@ func run() error {
 			p.Get("/kelas", kelasH.List)
 			p.Get("/kelas/{id}", kelasH.Get)
 			p.Get("/kelas/{id}/anggota", kelasH.ListAnggota)
-				p.Get("/kelas/{id}/guru", kelasH.ListGuruAnggota)
+			p.Get("/kelas/{id}/guru", kelasH.ListGuruAnggota)
 
 			rencanaH := handler.NewRencana(rencana)
 			p.Get("/rencana-bulanan", rencanaH.List)
@@ -426,6 +431,15 @@ func run() error {
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
 }
+
+// loginRateBurst / loginRateWindow cap login attempts per client IP. Sized to
+// match the public-attendance limiter convention while leaving comfortable
+// headroom for legitimate retries, but low enough to neuter password
+// brute-force and bcrypt CPU-exhaustion. Shared with the routes test.
+const (
+	loginRateBurst  = 10
+	loginRateWindow = time.Minute
+)
 
 // apiBaseResolver returns the function the SPA handler uses to compute the
 // per-request API base for index.html substitution. When the dynamic-path

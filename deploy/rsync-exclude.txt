@@ -5,10 +5,13 @@
 # Version control
 .git/
 
-# Secrets / local env — the remote keeps its own .env (see deploy.sh)
+# Secrets / local env — the remote keeps its own .env and .pgenv (see deploy.sh).
+# .pgenv holds the PostgreSQL password and MUST survive rsync --delete, or the
+# app would lose access to the existing database volume.
 .env
 .env.local
 .env.*.local
+.pgenv
 
 # Dependencies — reinstalled by the image build (npm ci / go mod download)
 node_modules/

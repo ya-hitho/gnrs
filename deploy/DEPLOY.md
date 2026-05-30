@@ -8,12 +8,16 @@ remote.
 
 1. `rsync -az --delete` the repo to the remote, skipping secrets, dependencies,
    build outputs, and local data (see `deploy/rsync-exclude.txt`).
-2. On the remote, `podman build` the image from the `Dockerfile` (Node + Go
-   multi-stage; the React SPA is embedded into the Go binary).
-3. `podman run` the container, replacing any previous one.
+2. On the remote, ensure a shared podman network and a `postgres:17` container
+   are running (created once; PostgreSQL data persisted in a named volume).
+3. `podman build` the image from the `Dockerfile` (Node + Go multi-stage; the
+   React SPA is embedded into the Go binary).
+4. `podman run` the app container on the same network, replacing any previous
+   one, with `DATABASE_URL` pointing at the postgres container.
 
-The SQLite database lives in a named podman volume, so redeploys never touch
-existing data.
+The PostgreSQL data and the uploaded photos live in named podman volumes, so
+redeploys never touch existing data. PostgreSQL credentials are generated once
+into a remote `.pgenv` file (excluded from rsync) and reused on every redeploy.
 
 ## Defaults
 
@@ -24,7 +28,10 @@ existing data.
 | Host port     | `8300` → container `8080` | `HOST_PORT`   |
 | Image         | `gnrs-new:latest`      | `IMAGE`          |
 | Container     | `gnrs-new`             | `CONTAINER`      |
-| Data volume   | `gnrs-new-data`        | `VOLUME`         |
+| Photos volume | `gnrs-new-data`        | `VOLUME`         |
+| DB container  | `gnrs-new-db` (postgres:17) | `DB_CONTAINER` |
+| DB volume     | `gnrs-new-db-data`     | `DB_VOLUME`      |
+| Network       | `gnrs-new-net`         | `NETWORK`        |
 
 > The remote already has an **unrelated** project at `~/gnrs`, and host port
 > `8080` is in use there — hence the distinct `~/gnrs-new` directory and port

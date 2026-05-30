@@ -138,9 +138,22 @@ func (a *Auth) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	apiBase := defaultAPIBase
 	if a.dynamicAPIPath {
-		if p, ok := auth.ReadAPIPathCookie(r); ok {
-			apiBase = "/" + p
+		p, ok := auth.ReadAPIPathCookie(r)
+		if !ok {
+			// Valid JWT but no auth_path cookie — e.g. the first load after
+			// the dynamic-path feature was enabled (existing sessions never
+			// got one), or the cookie was evicted while the JWT survived.
+			// Mint a fresh prefix and set it so the SPA recovers the dynamic
+			// base instead of being forced back to /login.
+			np, err := auth.GeneratePath()
+			if err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "internal", "Gagal membuat jalur API")
+				return
+			}
+			auth.SetAPIPathCookie(w, np, a.cookieSecure, int(a.jwt.TTL().Seconds()))
+			p = np
 		}
+		apiBase = "/" + p
 	}
 	httpx.JSON(w, http.StatusOK, authResponse{User: user, APIBase: apiBase})
 }

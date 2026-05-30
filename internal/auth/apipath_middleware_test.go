@@ -60,12 +60,14 @@ func TestDynamicAPIPath_NoPrefix_PassesThrough(t *testing.T) {
 
 func TestDynamicAPIPath_DirectAPI_Allowlist(t *testing.T) {
 	// Endpoints the SPA / browser must hit at the canonical /api prefix:
-	// login + logout bootstrap, public attendance endpoints, and photo
-	// <img> URLs (which can't carry the rotating prefix).
+	// login + logout bootstrap, auth/me (session check + prefix recovery),
+	// public attendance endpoints, and photo <img> URLs (which can't carry
+	// the rotating prefix).
 	h := DynamicAPIPath(true)(echoHandler())
 	cases := []string{
 		"/api/auth/login",
 		"/api/auth/logout",
+		"/api/auth/me",
 		"/api/public/teachers",
 		"/api/public/students",
 		"/api/public/attendances",
@@ -94,7 +96,7 @@ func TestDynamicAPIPath_DirectAPI_Forbidden(t *testing.T) {
 	cases := []string{
 		"/api",
 		"/api/",
-		"/api/auth/me",
+		"/api/auth/me/password", // exact-match allowlist must not expose sub-paths
 		"/api/students",
 		"/api/students/abc-123",
 		"/api/teachers",

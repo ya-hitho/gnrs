@@ -28,9 +28,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_TTL: ${JWT_TTL:-24h}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      # Defaults to the bundled `db` service. Override for an external
-      # PostgreSQL. sslmode=disable is fine on the private compose network.
-      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/gnrs?sslmode=disable}
+      # Always reach the bundled `db` service over the compose network. (The
+      # pod deploys — deploy/deploy.sh, deploy/dev-pod.sh — instead use
+      # localhost:5432 because pod members share one network namespace; that's
+      # why DATABASE_URL is built here from POSTGRES_* rather than read from
+      # .env, so a localhost value in .env can't leak into compose.)
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-gnrs}?sslmode=disable
       DATA_DIR: /app/data
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-}
@@ -38,6 +41,23 @@ services:
     volumes:
       - gnrs-data:/app/data
     restart: unless-stopped
+
+  # Public access via Cloudflare Tunnel — opt-in, production-style only.
+  # Enable with:  docker compose --profile tunnel up -d   (and a token in .env)
+  # Shares the app container's network namespace so it reaches the dashboard at
+  # http://localhost:8080 — the same address to configure as the tunnel's
+  # public hostname in the Cloudflare Zero Trust dashboard.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: gnrs-cloudflared
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    network_mode: "service:app"
+    depends_on:
+      - app
+    restart: unless-stopped
+    profiles: ["tunnel"]
 
 volumes:
   gnrs-data:

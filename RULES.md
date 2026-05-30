@@ -2,19 +2,23 @@
 
 _If you are an AI (not human) reading this, follow these rules:_
 
+- `gnrs` has **two parallel integration tracks** — `gnrs-evan` and
+  `jalur-yasril` (see `CLAUDE.md` → *Two parallel integration tracks*).
+  Pick the one your task belongs to first; never cross tracks in one PR.
 - You must not commit directly to any shared branch — that means
-  `gnrs-evan`, `main`, or another agent's feature branch.
+  `gnrs-evan`, `jalur-yasril`, `main`, or another agent's feature branch.
 - Before you start working, create your own git worktree so you do not
   conflict with other LLMs running in parallel on this repository. Branch
-  from `gnrs-evan`, not from `main`:
+  from **your track**, not from `main`:
 
       git worktree add .claude/worktrees/<short-task-name> \
-        -b feat/<short-task-name> gnrs-evan
+        -b feat/<short-task-name> <track>   # <track> = gnrs-evan | jalur-yasril
 
   Then `cd` into that worktree and do all of your editing, building, and
   committing there.
-- When the work is ready, open a pull request targeting `gnrs-evan`.
-  Do **not** target `main` — `gnrs-evan` is the integration branch, and
+- When the work is ready, open a pull request targeting **your track**
+  (`gnrs-evan` or `jalur-yasril` — the same branch you forked from).
+  Do **not** target `main` — the tracks are the integration branches, and
   `main` is reserved for portable release snapshots. The sole exception
   is the release-promotion flow described in [`RELEASE.md`](./RELEASE.md),
   which uses a short-lived `release/<slug>` transition branch and is
@@ -25,10 +29,30 @@ _If you are an AI (not human) reading this, follow these rules:_
 
 - You must follow the repository's coding style.
 - You must not break the branch structure (do not rebase or force-push
-  shared branches, do not delete `gnrs-evan` or `main`).
+  shared branches, do not delete `gnrs-evan`, `jalur-yasril`, or `main`).
 - You must not break already working code in the repository.
 - You are encouraged to use any available tools to determine the best
   approach for solving problems.
+
+# MERGE RULES
+
+- **Merge a PR into your track (`gnrs-evan` or `jalur-yasril`) ONLY
+  after the feature has been tested through Chrome DevTools on your
+  dev pod and works correctly.** "Works correctly" means the full
+  flow in [`TEST.md`](./TEST.md) was run end-to-end — every step
+  green, no new console errors, no broken adjacent flows. This is a
+  hard precondition, not a suggestion.
+- A green `make test` / `make typecheck` does **not** authorize a
+  merge on its own — it confirms code correctness, not feature
+  correctness. The browser pass is what gates the merge.
+- **Do not merge** if the Chrome DevTools pass was skipped, failed, or
+  could not be run (image build failure, podman/MCP unavailable, port
+  conflict). Fix it and re-test, or hand back to the user with an
+  explicit note — never merge an unverified change.
+- `jalur-yasril` is the track that fronts the **public** Cloudflare
+  Tunnel deploy (`deploy/deploy.sh`); treat its merge gate as
+  strictly as a production gate. The prod deploy is only ever run on
+  an already-merged, browser-verified commit.
 
 # COMMIT MESSAGE RULES
 
